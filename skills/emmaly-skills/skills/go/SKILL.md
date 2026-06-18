@@ -1,6 +1,6 @@
 ---
 name: go
-description: Go conventions, error handling, logging, project layout, and preferred libraries — use when working in Go code
+description: This skill should be used when working in Go code — conventions for go.mod/modules, error wrapping, sentinel errors, log/slog logging, project layout, preferred libraries (chi, gorilla, sqlite), containerization, and testing.
 ---
 
 ## Conventions

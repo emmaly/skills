@@ -1,6 +1,6 @@
 ---
 name: doc-review
-description: Use when reviewing project documentation for quality, accuracy, completeness, or consistency — identifies actionable recommendations and presents each interactively
+description: This skill should be used when reviewing project documentation for quality, accuracy, completeness, or consistency — identifies actionable recommendations and presents each interactively.
 ---
 
 # Doc Review

@@ -1,19 +1,11 @@
 ---
 name: svelte
-description: SvelteKit + Svelte 5 conventions, Tailwind CSS, DaisyUI, TypeScript — use when working in frontend code
+description: This skill should be used when working in frontend code — SvelteKit + Svelte 5 runes, Tailwind CSS, DaisyUI, TypeScript, Go-served static builds, and Vitest testing.
 ---
-
-## Stack
-
-- SvelteKit + Svelte 5 with runes (`$state`, `$derived`, `$effect`)
-- Tailwind CSS + DaisyUI for styling
-- TypeScript over JavaScript, always
 
 ## Conventions
 
 - When paired with a Go backend, SvelteKit builds to static/SSR output served by the Go server — do not run a Node.js host in production
-- SSE used plentifully for quick feedback/status/events from server to client
-- WebSocket used only when SSE isn't sufficient
 
 ## Testing
 

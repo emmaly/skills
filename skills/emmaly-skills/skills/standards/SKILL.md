@@ -39,4 +39,4 @@ Projects vary widely; choose based on project needs:
 
 ## Emmaly Plugin Skills
 
-The `emmaly` plugin provides skills for Go, Svelte, git workflow, integration, project setup, and deployment. Check the available skills list and invoke the relevant `emmaly:*` skill when working in those areas.
+The `emmaly-skills` plugin provides skills for Go, Svelte, git workflow, integration, project setup, deployment, Home Assistant, and documentation review. Check the available skills list and invoke the relevant `emmaly-skills:*` skill when working in those areas.

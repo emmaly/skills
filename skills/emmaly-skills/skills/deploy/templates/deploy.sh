@@ -48,7 +48,7 @@ load_config() {
         fi
     done
 
-    SECRETS_FILE="${SCRIPT_DIR}/.secrets/env"
+    SECRETS_FILE="${SCRIPT_DIR}/.secrets/.env"
     REMOTE_HOME="$(remote 'echo $HOME' 2>/dev/null)" || true
     if [[ -z "$REMOTE_HOME" ]]; then
         REMOTE_HOME="/home/${DEPLOY_USER}"
@@ -229,13 +229,13 @@ cmd_deploy() {
 
     # Preflight
     if [[ ! -f "$SECRETS_FILE" ]]; then
-        error ".secrets/env not found at ${SECRETS_FILE}"
+        error ".secrets/.env not found at ${SECRETS_FILE}"
         error "Create it with the required environment variables (see env.example)"
         exit 1
     fi
 
     if [[ ! -s "$SECRETS_FILE" ]]; then
-        error ".secrets/env is empty"
+        error ".secrets/.env is empty"
         exit 1
     fi
 

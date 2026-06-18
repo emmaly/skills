@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Scaffold podman-compose deployment to a remote server over SSH with cloudflared, versioning, rollback, and secure .env handling
+description: This skill should be used when the user asks to "set up deployment", "add a deploy script", or "deploy to remote" — scaffolds a podman-compose deployment to a remote server over SSH with cloudflared, versioning, rollback, and secure .env handling.
 ---
 
 # Deploy Skill
@@ -14,7 +14,7 @@ Copies and adapts deployment templates into the current project:
 1. **deploy.sh** — Main script with subcommands: `deploy`, `status`, `logs`, `teardown`, `rollback`, `preflight`
 2. **podman-compose.yml** — Compose file with app service + cloudflared tunnel
 3. **deploy.conf** — Non-secret deployment target config (host, user, project name)
-4. **.secrets/env** — Secret environment variables (gitignored)
+4. **.secrets/.env** — Secret environment variables (gitignored)
 
 ## Scaffolding Steps
 
@@ -32,7 +32,7 @@ When invoked, do the following:
    - `DEPLOY_HOST` — remote server hostname or IP
    - `DEPLOY_USER` — SSH user on remote
    - `PROJECT_NAME` — used for image naming and remote directory
-7. Create `.secrets/env` from `env.example`, telling the user which values to fill in
+7. Create `.secrets/.env` from `env.example`, telling the user which values to fill in
 8. Copy `env.example` into the project root for reference
 
 ## Deploy Flow Summary
@@ -43,7 +43,7 @@ The deploy script uses tarball-over-SSH (no registry needed):
 Local: build → save images to .tar → scp to remote → load → up -d
 ```
 
-- Secrets: `.secrets/env` transferred as `.env` with chmod 600
+- Secrets: `.secrets/.env` transferred as `.env` with chmod 600
 - Versioning: git commit hash (8-char short) stamped in `VERSION` file
 - Rollback: previous deployment snapshot preserved on remote, `rollback` swaps current ↔ previous (including .env)
 - Cloudflared: pulled fresh on remote, token injected via compose variable substitution from `.env`

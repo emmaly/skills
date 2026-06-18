@@ -1,6 +1,6 @@
 ---
 name: project-setup
-description: Secrets, gitignore, documentation structure, CI conventions — use when starting a new project or setting up project scaffolding
+description: This skill should be used when starting a new project or setting up project scaffolding — covers the `.secrets/` convention, `.gitignore`, README/PRD/AGENTS.md/CLAUDE.md documentation structure, Dockerfile/containerization, and CI conventions.
 ---
 
 ## Secrets
@@ -18,9 +18,9 @@ description: Secrets, gitignore, documentation structure, CI conventions — use
 
 ## Containerization
 
-- For projects that will be deployed via `emmaly:deploy`, scaffold a `Dockerfile` alongside the project code
+- For projects that will be deployed via `emmaly-skills:deploy`, scaffold a `Dockerfile` alongside the project code
 - Use multi-stage builds: build stage(s) for compiling, minimal final stage (e.g., `alpine`) for the runtime image
-- Match the Go version in the `golang` build stage to what's available on Docker Hub, not the locally installed version (see `emmaly:go` containerization notes)
+- Match the Go version in the `golang` build stage to what's available on Docker Hub, not the locally installed version (see `emmaly-skills:go` containerization notes)
 
 ## CI
 

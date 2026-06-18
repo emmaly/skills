@@ -1,6 +1,6 @@
 ---
 name: integration
-description: CodeRabbit review loop, push/merge process — use when pushing code, opening PRs, or merging
+description: This skill should be used when pushing code, opening a PR, or merging — the mandatory local CodeRabbit review loop, push/merge process, and PR-gate conventions.
 ---
 
 Once implementation is complete and local verification passes (`go vet`, `gofmt`, tests, frontend build), proceed directly through this workflow without waiting for further instruction:

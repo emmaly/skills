@@ -1,6 +1,6 @@
 ---
 name: api-explorer
-description: Discover, fetch, cache, and normalize third-party API documentation — use before implementing against any external API
+description: This skill should be used when the user asks to "build out X API", "implement an X client", "integrate with X", or "call the X API" — discover, fetch, cache, and normalize third-party API documentation before implementing against any external API. Research only; generates no implementation code.
 ---
 
 # API Explorer
@@ -11,7 +11,15 @@ Discovers, fetches, caches, and normalizes third-party API documentation so you 
 
 Invoke this skill when the task involves implementing against, integrating with, or building a client for an external API. Trigger phrases include: "build out X API", "implement X client", "integrate with X", "call the X API", or any task that requires understanding a third-party API's endpoints, types, and auth.
 
-This skill runs first, before any implementation skill (`emmaly:go`, `emmaly:svelte`, etc.). Its output — a cached, normalized manifest — is what those skills consume.
+This skill runs first, before any implementation skill (`emmaly-skills:go`, `emmaly-skills:svelte`, etc.). Its output — a cached, normalized manifest — is what those skills consume.
+
+## Reference Files
+
+Detailed material is kept out of the always-loaded body. Consult as needed:
+
+- **`references/manifest-format.md`** — full manifest JSON schema (top-level structure, auth, conventions, types, endpoints, dependency graph)
+- **`references/scope-and-formats.md`** — scope include/exclude rules and the supported spec-format table with discovery methods and confidence
+- **`references/edge-cases.md`** — private/large/HTML-only APIs, spec validation failures, and cache-management operations (list, purge, force refresh, show scopes)
 
 ## Cache Location
 
@@ -212,7 +220,7 @@ For each operation:
 **Dependency graph:**
 A map of endpoint ID to its prerequisite endpoint IDs. Built from `dependsOn` fields but also from type analysis (if an endpoint's path parameter references an ID that only another endpoint can produce).
 
-Save the manifest as `apis/{slug}/manifest.json`. If a previous manifest exists, archive it as `manifest.{previous-timestamp}.json`.
+Save the manifest as `apis/{slug}/manifest.json`. If a previous manifest exists, archive it as `manifest.{previous-timestamp}.json`. See `references/manifest-format.md` for the full schema.
 
 ### Phase 6: Scope Filtering
 
@@ -227,6 +235,8 @@ If the user requested a subset of the API (which is the common case):
 3. **Always include:** auth section, conventions section, API metadata
 4. **Boundary check:** if the scope pulls in more than 50% of the total endpoints, flag this to the user: "The {scope} scope pulls in {N} of {total} endpoints due to shared dependencies. Proceed with this scope, or use the full API?"
 5. Save the filtered manifest as `apis/{slug}/scopes/{scope-slug}.json`
+
+See `references/scope-and-formats.md` for the full include/exclude rules.
 
 ### Phase 7: Present Summary
 
@@ -252,96 +262,6 @@ If there are gaps or concerns, list them:
 
 Wait for user confirmation before proceeding. Once confirmed, the scoped manifest is ready for consumption by implementation skills.
 
-## Manifest Format Reference
-
-The manifest is a single JSON file. Top-level structure:
-
-```json
-{
-  "manifestVersion": 2,
-  "generatedAt": "ISO 8601 timestamp",
-  "sourceSnapshot": "timestamp of raw snapshot used",
-  "api": {
-    "name": "string",
-    "slug": "string",
-    "version": "string",
-    "description": "string",
-    "baseUrls": [{"url": "string", "environment": "string"}],
-    "specFormat": "openapi3 | openapi2 | asyncapi | graphql | grpc | raml | blueprint | html",
-    "specUrl": "string"
-  },
-  "auth": {
-    "mechanisms": [
-      {
-        "type": "oauth2 | apiKey | bearer | mutualTls | custom",
-        "...": "mechanism-specific fields"
-      }
-    ],
-    "requiredForAllEndpoints": "boolean",
-    "notes": "string"
-  },
-  "conventions": {
-    "pagination": {"style": "string", "params": {}, "responseFields": {}, "maxLimit": 0, "defaultLimit": 0},
-    "rateLimits": {"global": "string", "headers": {}},
-    "errors": {"format": "string", "structure": {}, "commonCodes": {}},
-    "idFormat": "string",
-    "timestamps": "string"
-  },
-  "types": {
-    "TypeName": {
-      "description": "string",
-      "fields": {"fieldName": {"type": "string", "description": "string", "required": "boolean", "example": "any"}},
-      "type": "enum (only if enum)",
-      "values": ["only if enum"]
-    }
-  },
-  "endpoints": [
-    {
-      "id": "string",
-      "method": "GET | POST | PUT | PATCH | DELETE",
-      "path": "string",
-      "summary": "string",
-      "tags": ["string"],
-      "auth": {"required": "boolean", "scopes": ["string"]},
-      "params": {
-        "path": [{"name": "string", "type": "string", "required": "boolean"}],
-        "query": [{"name": "string", "type": "string", "required": "boolean", "default": "any"}],
-        "header": [{"name": "string", "type": "string", "required": "boolean"}]
-      },
-      "requestBody": {"type": "string", "required": "boolean", "contentType": "string"},
-      "response": {
-        "success": {"status": 0, "type": "string"},
-        "errors": [0]
-      },
-      "dependsOn": ["endpoint IDs"]
-    }
-  ],
-  "dependencyGraph": {
-    "endpointId": ["prerequisite endpoint IDs"]
-  }
-}
-```
-
-## Scope Rules
-
-**Always include:**
-- Authentication mechanisms and details
-- API conventions (pagination, errors, rate limits)
-- API metadata (name, version, base URLs)
-
-**Include by dependency walk:**
-- Endpoints matching the user's scope (by path, tag, or keyword)
-- All types referenced by included endpoints (transitive)
-- All prerequisite endpoints from `dependsOn` chains (transitive)
-- All types referenced by prerequisite endpoints (transitive)
-
-**Exclude:**
-- Endpoints outside the scope that are not dependencies
-- Types only referenced by excluded endpoints
-- Webhook/event definitions (unless the scope involves receiving events)
-- Admin/management endpoints (unless explicitly requested)
-- Deprecated endpoints (unless no non-deprecated alternative exists)
-
 ## Freshness and Re-use
 
 - **Staleness threshold:** 7 days by default. Mention the age when reusing cached docs.
@@ -349,22 +269,6 @@ The manifest is a single JSON file. Top-level structure:
 - **Snapshots are immutable:** never overwrite a `raw/{timestamp}/` directory. Each fetch creates a new snapshot.
 - **Manifest diffing:** when refreshing, compare the new manifest against the previous one and report changes: new endpoints, removed endpoints, changed types, etc.
 - **Cross-project:** the cache is global. Any project can use any cached API. Never duplicate into a project unless the user requests it.
-
-## Supported Formats
-
-| Format | Discovery Method | Confidence |
-|--------|-----------------|------------|
-| OpenAPI 3.x | Well-known paths, web search, GitHub | High |
-| Swagger / OpenAPI 2.0 | Well-known paths, web search, GitHub | High |
-| AsyncAPI | Well-known paths, web search, GitHub | High |
-| GraphQL | Introspection query at `/graphql` | High |
-| gRPC / Protobuf | `.proto` file download, buf registry | High |
-| RAML | Web search, GitHub | High |
-| API Blueprint | Web search, GitHub | Medium |
-| HTML documentation | Web scraping of doc pages | Low — flag in summary |
-| Postman Collection v2.x | Postman search, web search, `{api}.postman.co` | Medium — covers endpoints and examples but may lack full type schemas |
-
-When multiple formats are available, prefer machine-readable specs over HTML. Prefer OpenAPI 3.x over Swagger 2.0.
 
 ## Tool Usage
 
@@ -376,24 +280,3 @@ When multiple formats are available, prefer machine-readable specs over HTML. Pr
 | Normalize | Read (raw files), Write (manifest.json) |
 | Scope filter | Read (manifest.json), Write (scopes/{slug}.json) |
 | Present | Direct text output to user |
-
-## Edge Cases
-
-**Private/authenticated doc sites:** If fetching returns 401 or 403, ask the user to either provide credentials, a pre-authenticated URL, or a locally downloaded copy of the spec file.
-
-**Very large APIs (AWS, GCP, Azure, etc.):** These are mega-APIs with hundreds of services. Never attempt to fetch the whole thing. Always require a specific service name as part of the scope (e.g., "AWS S3" not "AWS").
-
-**HTML-only APIs:** When no machine-readable spec exists, normalize from HTML. Flag the manifest with `"confidence": "low"` in the `api` section and include a note in the Phase 7 summary. Expect inaccuracies — recommend the user verify critical types and auth details.
-
-**Context window pressure:** Only load the scoped manifest into context, not the full manifest. If even the scoped manifest is very large, summarize the types section and keep the full endpoints list.
-
-**Spec validation failures:** If a fetched spec is malformed (invalid JSON, broken YAML, non-conformant OpenAPI), note the specific issue, try alternate sources, and if no valid source exists, fall back to HTML doc scraping.
-
-## Cache Management
-
-These operations can be requested in natural language:
-
-- **List cached APIs:** Read `index.json` and display all cached APIs with name, age, and scope count
-- **Purge a cached API:** Remove the `apis/{slug}/` directory and its entry from `index.json`
-- **Force refresh:** Re-run Phases 3-5 regardless of cache age, creating a new snapshot
-- **Show cached scopes:** List all `scopes/*.json` files for a given API

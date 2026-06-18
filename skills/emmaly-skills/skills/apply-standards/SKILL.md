@@ -1,11 +1,11 @@
 ---
 name: apply-standards
-description: Write or update the standards section in ~/.claude/CLAUDE.md from emmaly:standards — use to persist standards across all projects
+description: This skill should be used to "apply standards" or "persist standards globally" — writes or updates the standards section in ~/.claude/CLAUDE.md from emmaly-skills:standards so it loads in every conversation across all projects.
 ---
 
 # Apply Standards to ~/.claude/CLAUDE.md
 
-This skill writes the content of `emmaly:standards` into `~/.claude/CLAUDE.md` so it is loaded automatically in every conversation, across all projects.
+This skill writes the content of `emmaly-skills:standards` into `~/.claude/CLAUDE.md` so it is loaded automatically in every conversation, across all projects.
 
 ## Steps
 

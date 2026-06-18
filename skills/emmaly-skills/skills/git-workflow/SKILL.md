@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: Branching, conventional commits, PR descriptions, and GitHub issues workflow — use when committing, branching, or working with PRs and issues
+description: This skill should be used when committing, branching, opening PRs, or filing GitHub issues — branch naming, conventional commits, PR descriptions, and issue workflow.
 ---
 
 ## Branching

@@ -1,6 +1,6 @@
 ---
 name: home-assistant
-description: Home Assistant REST and WebSocket API access patterns, authentication, and common commands — use when interacting with Home Assistant
+description: This skill should be used when interacting with Home Assistant — REST and WebSocket API access patterns, Bearer-token auth, and common commands for states, services, dashboards, logs, and HACS.
 ---
 
 ## Credentials
@@ -12,7 +12,11 @@ HASS_API_URL=http://your-ha-host:8123
 HASS_API_KEY=your_long_lived_access_token
 ```
 
-Load these before making any requests.
+Load these into the environment before making requests. The user's `fish` shell cannot `source` a `.env` (it uses `export KEY=VALUE` syntax), so use `envwith`:
+
+```
+envwith -f .secrets/.env -- <command> [args...]
+```
 
 ## REST API
 
@@ -108,7 +112,12 @@ Every command message requires an `id` field — sequential integers starting fr
 
 ## Python WebSocket Example
 
-Requires `websockets` package (`pip install websockets`).
+Requires the `websockets` package. On modern Linux a bare `pip install` is blocked by PEP 668 (`externally-managed-environment`); install into a venv or with `uv`:
+
+```bash
+uv pip install websockets
+# or: python -m venv .venv && .venv/bin/pip install websockets
+```
 
 ```python
 import asyncio
@@ -119,7 +128,8 @@ import websockets
 async def ha_websocket():
     api_url = os.environ["HASS_API_URL"]
     api_key = os.environ["HASS_API_KEY"]
-    ws_url = api_url.replace("http", "ws", 1) + "/api/websocket"
+    # Anchor the swap at the scheme so hosts containing "http" aren't mangled
+    ws_url = ("wss" + api_url[5:] if api_url.startswith("https") else "ws" + api_url[4:]) + "/api/websocket"
 
     async with websockets.connect(ws_url) as ws:
         # Auth
