@@ -14,7 +14,7 @@ description: Secrets, gitignore, documentation structure, CI conventions — use
 - `docs/PRD.md`: encourage creating a Product Requirements Document for new projects. Captures goals, scope, user stories, and constraints before implementation begins
 - `docs/*.md`: everything else (architecture, design decisions, API docs, etc)
 - `AGENTS.md`: project-level agent instructions go in `AGENTS.md` (tool-agnostic)
-- `CLAUDE.md`: if an `AGENTS.md` exists, `CLAUDE.md` should be a symlink to it; never bake in Claude-specific files
+- `CLAUDE.md`: if an `AGENTS.md` exists, `CLAUDE.md` should be a plain text file whose first line is `@AGENTS.md` (imports the shared instructions, like a symlink would). Add any Claude-specific instructions below that import line; never duplicate the `AGENTS.md` content
 
 ## Containerization
 
