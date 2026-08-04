@@ -16,6 +16,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DRY_RUN=false
 LOCAL_TARBALLS=()
+VERSION_TMP=""
 
 # --- Colors ---
 RED='\033[0;31m'
@@ -26,7 +27,9 @@ NC='\033[0m' # No Color
 
 # --- Output helpers ---
 info()    { echo -e "${GREEN}✓${NC} $*"; }
-warn()    { echo -e "${YELLOW}!${NC} $*"; }
+# warn goes to stderr: get_version() warns from inside a command substitution,
+# and on stdout the warning text would be captured as part of the version.
+warn()    { echo -e "${YELLOW}!${NC} $*" >&2; }
 error()   { echo -e "${RED}✗${NC} $*" >&2; }
 step()    { echo -e "${CYAN}→${NC} $*"; }
 
@@ -49,10 +52,20 @@ load_config() {
     done
 
     SECRETS_FILE="${SCRIPT_DIR}/.secrets/.env"
-    REMOTE_HOME="$(remote 'echo $HOME' 2>/dev/null)" || true
+
+    # Resolve the remote $HOME with a direct ssh call, not the remote() wrapper:
+    # under --dry-run the wrapper echoes its command instead of running it, which
+    # would make REMOTE_HOME the echoed string and corrupt every remote path.
+    REMOTE_HOME=""
+    if [[ "$DRY_RUN" != true ]]; then
+        REMOTE_HOME="$(ssh -o BatchMode=yes -o ConnectTimeout=10 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" 'echo $HOME' 2>/dev/null)" || true
+    fi
     if [[ -z "$REMOTE_HOME" ]]; then
         REMOTE_HOME="/home/${DEPLOY_USER}"
-        warn "Could not resolve remote \$HOME, assuming ${REMOTE_HOME}"
+        if [[ "$DRY_RUN" != true ]]; then
+            warn "Could not resolve remote \$HOME, assuming ${REMOTE_HOME}"
+        fi
     fi
     REMOTE_BASE="${REMOTE_HOME}/deploy/${PROJECT_NAME}"
     REMOTE_CURRENT="${REMOTE_BASE}/current"
@@ -83,7 +96,11 @@ cleanup() {
             rm -f "$tarball"
         done
     fi
-    rm -f "${SCRIPT_DIR}/VERSION"
+    # Only remove the version stamp this run created — never a VERSION file
+    # that belongs to the project.
+    if [[ -n "$VERSION_TMP" ]]; then
+        rm -f "$VERSION_TMP"
+    fi
 }
 trap cleanup EXIT
 
@@ -114,30 +131,39 @@ get_local_images() {
         exit 1
     fi
 
-    # Use podman-compose to resolve image names for services with build contexts
-    # Fall back to parsing if podman-compose config isn't available
+    # Buffer each service block and emit at its end, so `image:` and `build:`
+    # may appear in either order (the template lists image first).
     local services_with_build
-    services_with_build=$(awk '
-        /^[[:space:]]*[a-zA-Z_-]+:/ {
-            # Track current service name (top-level under services)
-            if (in_services) {
-                current_service = $1
-                gsub(/:/, "", current_service)
-                has_build = 0
-            }
-        }
-        /^services:/ { in_services = 1; next }
-        /^[a-zA-Z]/ && !/^services:/ { in_services = 0 }
-        in_services && /^[[:space:]]+build:/ { has_build = 1 }
-        in_services && /^[[:space:]]+image:/ {
-            if (has_build) {
-                img = $2
-                # Substitute ${PROJECT_NAME} with env var
-                gsub(/\$\{PROJECT_NAME\}/, ENVIRON["PROJECT_NAME"], img)
-                gsub(/\$PROJECT_NAME/, ENVIRON["PROJECT_NAME"], img)
+    services_with_build=$(awk -v proj="${PROJECT_NAME}" '
+        function flush(   img) {
+            if (svc != "" && has_build) {
+                if (image == "") {
+                    print "! service \"" svc "\" has build: but no image: — guessing" \
+                          " localhost/" svc ":latest; set image: explicitly" > "/dev/stderr"
+                }
+                img = (image != "") ? image : ("localhost/" svc ":latest")
+                gsub(/\$\{PROJECT_NAME\}/, proj, img)
+                gsub(/\$PROJECT_NAME/, proj, img)
                 print img
             }
+            svc = ""; image = ""; has_build = 0
         }
+        # Any top-level key closes the current service and the services block
+        /^[^[:space:]#]/ {
+            flush()
+            in_services = ($0 ~ /^services:[[:space:]]*$/)
+            next
+        }
+        !in_services { next }
+        # Service name: exactly two spaces of indent, nothing after the colon
+        /^  [^[:space:]#][^:]*:[[:space:]]*$/ {
+            flush()
+            svc = $1; sub(/:$/, "", svc)
+            next
+        }
+        /^[[:space:]]+build:/ { has_build = 1; next }
+        /^[[:space:]]+image:[[:space:]]/ { image = $2; next }
+        END { flush() }
     ' "$compose_file")
 
     if [[ -z "$services_with_build" ]]; then
@@ -241,7 +267,10 @@ cmd_deploy() {
 
     local version
     version="$(get_version)"
-    echo "$version" > "${SCRIPT_DIR}/VERSION"
+    # Stamped into a temp file, not the project root — a project may have its
+    # own VERSION file, and this one is only needed for the transfer.
+    VERSION_TMP="$(mktemp)"
+    echo "$version" > "$VERSION_TMP"
     info "Version: ${version}"
 
     # Build
@@ -287,7 +316,7 @@ cmd_deploy() {
     step "Transferring files to remote..."
     remote_scp "${SCRIPT_DIR}/podman-compose.yml" "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_CURRENT}/"
     remote_scp "${SECRETS_FILE}" "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_CURRENT}/.env"
-    remote_scp "${SCRIPT_DIR}/VERSION" "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_CURRENT}/"
+    remote_scp "$VERSION_TMP" "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_CURRENT}/VERSION"
 
     for tarball in "${LOCAL_TARBALLS[@]}"; do
         local basename
@@ -296,16 +325,32 @@ cmd_deploy() {
         remote_scp "$tarball" "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_CURRENT}/"
     done
 
+    # podman-compose interpolates ${PROJECT_NAME} in the compose file from the
+    # .env in its working directory. deploy.conf never goes to the remote, so
+    # the value has to be carried in the .env or container_name and image both
+    # resolve to empty on the remote.
+    step "Injecting PROJECT_NAME into remote .env..."
+    remote "
+        cd ${REMOTE_CURRENT} && \
+        if ! grep -q '^PROJECT_NAME=' .env; then
+            if [ -n \"\$(tail -c1 .env)\" ]; then echo >> .env; fi
+            echo 'PROJECT_NAME=${PROJECT_NAME}' >> .env
+        fi
+    "
+
     # Secure the .env file
     remote "chmod 600 ${REMOTE_CURRENT}/.env"
     info "Files transferred"
 
-    # Load images and start
+    # Load images and start. The tarballs stay in the deployment directory so
+    # `rollback` can reload them — the remote image store may have been pruned
+    # since. Only two snapshots exist at a time (current + previous), so this
+    # costs at most two copies of the images.
     step "Loading images on remote..."
     remote "
         cd ${REMOTE_CURRENT} && \
         for f in *.tar; do
-            [ -f \"\$f\" ] && podman load -i \"\$f\" && rm -f \"\$f\"
+            if [ -f \"\$f\" ]; then podman load -i \"\$f\"; fi
         done
     "
     info "Images loaded"
@@ -405,6 +450,15 @@ cmd_rollback() {
     step "Current version: ${current_version}"
     step "Rolling back to: ${prev_version}"
 
+    # Verify the previous snapshot can actually be restored BEFORE touching the
+    # running stack. Deployments made before image tarballs were retained have
+    # nothing to reload, and the images they need may have been pruned since.
+    if ! remote "ls ${REMOTE_PREVIOUS}/*.tar >/dev/null 2>&1"; then
+        error "The previous deployment (${prev_version}) has no image tarballs"
+        error "Nothing to restore from — re-deploy the desired version instead."
+        exit 1
+    fi
+
     # Stop current
     step "Stopping current stack..."
     remote "cd ${REMOTE_CURRENT} && podman-compose down" 2>/dev/null || true
@@ -418,14 +472,22 @@ cmd_rollback() {
         mv tmp_rollback previous
     "
 
-    # Load images from restored deployment
+    # Load images from restored deployment. Failures here are fatal: starting
+    # the stack against whatever happens to be in the image store would
+    # silently "roll back" to the wrong build.
     step "Loading images from restored deployment..."
-    remote "
+    if ! remote "
         cd ${REMOTE_CURRENT} && \
         for f in *.tar; do
-            [ -f \"\$f\" ] && podman load -i \"\$f\"
+            podman load -i \"\$f\" || exit 1
         done
-    " 2>/dev/null || true
+    "; then
+        error "Failed to load images for ${prev_version} — stack not started"
+        error "The deployment directories have been swapped; ${REMOTE_CURRENT}"
+        error "now holds ${prev_version}. Fix the images and run 'up -d' there,"
+        error "or re-deploy."
+        exit 1
+    fi
 
     # Start restored stack
     step "Starting restored stack..."

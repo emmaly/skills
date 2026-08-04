@@ -44,8 +44,9 @@ Local: build → save images to .tar → scp to remote → load → up -d
 ```
 
 - Secrets: `.secrets/.env` transferred as `.env` with chmod 600
-- Versioning: git commit hash (8-char short) stamped in `VERSION` file
-- Rollback: previous deployment snapshot preserved on remote, `rollback` swaps current ↔ previous (including .env)
+- `PROJECT_NAME`: appended to the remote `.env` during transfer. `deploy.conf` stays local, but podman-compose needs `PROJECT_NAME` on the remote to interpolate `container_name` and `image` — without it both resolve to empty
+- Versioning: git commit hash (8-char short) written to a temp file and transferred as `VERSION`; the project's own root is never touched
+- Rollback: previous deployment snapshot preserved on remote, `rollback` swaps current ↔ previous (including .env). Image tarballs are retained in each snapshot so a rollback can reload them even if the remote image store was pruned — budget for two copies of the images on the remote
 - Cloudflared: pulled fresh on remote, token injected via compose variable substitution from `.env`
 
 ## Network Conventions
@@ -72,4 +73,5 @@ When adapting for a specific project:
 - Add volume mounts for persistent data
 - Add additional services (database, cache, etc.)
 - Add health check endpoints if the app supports them
+- Give every service with a `build:` key an explicit `image:` key. `get_local_images()` parses the compose file to decide what to save and transfer; without an `image:` it guesses `localhost/<service>:latest` and warns, which will not match what podman-compose actually built
 - Adjust `get_local_images()` in deploy.sh if image naming doesn't follow the convention

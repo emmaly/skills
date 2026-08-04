@@ -7,9 +7,11 @@ description: This skill should be used to "apply standards" or "persist standard
 
 This skill writes the content of `emmaly-skills:standards` into `~/.claude/CLAUDE.md` so it is loaded automatically in every conversation, across all projects.
 
+**This is not needed for Claude Code.** The plugin's `SessionStart` hook (`hooks/emit-standards.sh`) already injects the standards into every session where `emmaly-skills` is enabled. Use this skill when the standards need to persist somewhere the plugin doesn't reach: other agent tooling that reads `~/.claude/CLAUDE.md`, or machines where the plugin isn't installed. Running both is harmless but duplicates the content in context.
+
 ## Steps
 
-1. **Read the standards source**: Read the file `../standards/SKILL.md` relative to this skill (i.e. the sibling `standards` skill directory). Strip the YAML frontmatter (everything between the opening and closing `---` lines). Keep only the body content.
+1. **Read the standards source**: Read `${CLAUDE_PLUGIN_ROOT}/skills/standards/SKILL.md` (the sibling `standards` skill in this plugin). Strip the YAML frontmatter (everything between the opening and closing `---` lines). Keep only the body content.
 
 2. **Read `~/.claude/CLAUDE.md`**: If it doesn't exist, create it. Read its current contents.
 
