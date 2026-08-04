@@ -135,6 +135,17 @@ get_local_images() {
     # may appear in either order (the template lists image first).
     local services_with_build
     services_with_build=$(awk -v proj="${PROJECT_NAME}" '
+        # YAML scalars may be quoted; podman save would not find an image name
+        # with literal quote characters in it. sprintf("%c", 39) is a single
+        # quote — it cannot be written literally inside this awk program.
+        function unquote(s,   q) {
+            q = substr(s, 1, 1)
+            if (length(s) > 1 && (q == "\"" || q == sprintf("%c", 39)) &&
+                substr(s, length(s), 1) == q) {
+                return substr(s, 2, length(s) - 2)
+            }
+            return s
+        }
         function flush(   img) {
             if (svc != "" && has_build) {
                 if (image == "") {
@@ -162,7 +173,7 @@ get_local_images() {
             next
         }
         /^[[:space:]]+build:/ { has_build = 1; next }
-        /^[[:space:]]+image:[[:space:]]/ { image = $2; next }
+        /^[[:space:]]+image:[[:space:]]/ { image = unquote($2); next }
         END { flush() }
     ' "$compose_file")
 
