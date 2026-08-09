@@ -6,8 +6,10 @@ set -euo pipefail
 # SessionStart is one of the few hook events whose stdout is added directly to
 # Claude's context, so printing the standards here makes them active in every
 # session where this plugin is enabled — no need to write them into
-# ~/.claude/CLAUDE.md. This is the only mechanism that loads the standards; if
-# they are ever also copied into a CLAUDE.md, they will be in context twice.
+# ~/.claude/CLAUDE.md. This is the only mechanism that loads the standards
+# automatically; if they are ever also copied into a CLAUDE.md, they will be in
+# context twice. (Invoking the `standards` skill by hand also re-emits them —
+# that is intended, and its description says to do so only on request.)
 #
 # No matcher is set in hooks.json, so this fires on startup, resume, clear, and
 # compact — the last one matters, since compaction can summarize the standards

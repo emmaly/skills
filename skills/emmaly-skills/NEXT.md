@@ -6,13 +6,34 @@ the SessionStart hook; the `deploy` skill is gone.
 ## Where things stand
 
 - `hooks/emit-standards.sh` prints `skills/standards/SKILL.md` into every session
-  (startup, resume, clear, **compact**). This is the *only* mechanism that loads
-  the standards — the `<!-- emmaly:standards -->` block was removed from
-  `~/.claude/CLAUDE.md`, and the `apply-standards` skill that wrote it is deleted.
-  If the standards ever appear twice in context, something re-added that block.
-- The plugin is installed from a **directory** marketplace pointing at
-  `~/Projects/emmaly` itself, so changes on `main` are live after a
-  `/plugin` reload — there is no publish step.
+  (startup, resume, clear, **compact**). It is the only *automatic* loader — the
+  `<!-- emmaly:standards -->` block was removed from `~/.claude/CLAUDE.md` and the
+  `apply-standards` skill that wrote it is deleted. `standards` is still an
+  invokable skill, so invoking it explicitly does put the same body in context a
+  second time; that is a deliberate escape hatch, not a bug, and its description
+  says to invoke it only when asked what the standards are.
+
+## Releasing a change (do not skip)
+
+The plugin is **not** served live from `~/Projects/emmaly`. Installing copies the
+tree into a version-keyed cache at
+`~/.claude/plugins/cache/emmaly/emmaly-skills/<version>/`, and that copy is what
+loads. The version string is the refresh trigger:
+
+1. Bump `version` in **both** `.claude-plugin/marketplace.json` and
+   `skills/emmaly-skills/.claude-plugin/plugin.json` (format `YYYYMMDDNNN`).
+2. `/plugin marketplace update emmaly`
+3. `/plugin update emmaly-skills@emmaly`
+4. Restart the session — SessionStart hooks are registered at launch.
+
+Verify with `ls ~/.claude/plugins/cache/emmaly/emmaly-skills/` — a new version
+directory should exist.
+
+**This has bitten before.** The commits of 2026-06-18 changed skills without
+bumping the version, so the cache stayed on `20260415001` and none of it ever
+loaded. If a skill edit seems to have no effect, check the cache directory before
+debugging anything else. For iterating without a release, run
+`claude --plugin-dir ./skills/emmaly-skills`.
 
 ## To do
 
