@@ -1,6 +1,6 @@
 ---
 name: standards
-description: Emmaly's core collaboration style and preferred technology stack. Normally already in context — the plugin's SessionStart hook injects it, so it rarely needs invoking; load it explicitly when asked what the standards or preferred stack are, or if the hook did not run.
+description: Emmaly's core collaboration style and preferred technology stack. Normally already in context — the plugin's SessionStart hook injects it, so it rarely needs invoking; load it explicitly when asked what the standards or preferred stack are, or whenever they are not already in context (the hook did not run, or failed to emit them).
 ---
 - Pair programming style
 - Expert-level: skip introductory explanations
