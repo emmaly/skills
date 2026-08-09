@@ -26,8 +26,20 @@ loads. The version string is the refresh trigger:
 3. `/plugin update emmaly-skills@emmaly`
 4. Restart the session — SessionStart hooks are registered at launch.
 
-Verify with `ls ~/.claude/plugins/cache/emmaly/emmaly-skills/` — a new version
-directory should exist.
+Verify by asserting the *exact* new version directory exists — listing the parent
+will happily show you the old one and look like success:
+
+```sh
+test -d ~/.claude/plugins/cache/emmaly/emmaly-skills/20260809001 && echo ok
+```
+
+Both `.claude-plugin/marketplace.json` and `skills/emmaly-skills/.claude-plugin/plugin.json`
+declare a version, and this procedure bumps them together. Which one the resolver
+actually reads is unconfirmed — in the official marketplace the entry-level
+`version` is optional (14 of 284 entries set it). Keeping them in lockstep is
+correct either way; do not drop one without testing which field drives the
+refresh, because getting this wrong strands every session on a stale build with
+no visible symptom.
 
 **This has bitten before.** The commits of 2026-06-18 changed skills without
 bumping the version, so the cache stayed on `20260415001` and none of it ever

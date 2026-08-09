@@ -18,8 +18,12 @@ set -euo pipefail
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SKILL_FILE="${PLUGIN_ROOT}/skills/standards/SKILL.md"
 
-# Never fail a session start over this.
-if [[ ! -f "$SKILL_FILE" ]]; then
+# Never fail a session start over this — but say so on stderr, or a silent
+# exit 0 looks identical to a session that simply has no standards. Readable,
+# not merely present: an unreadable file would otherwise reach awk and trip
+# `set -e` with no explanation.
+if [[ ! -r "$SKILL_FILE" ]]; then
+    echo "emmaly-skills: standards not loaded, cannot read ${SKILL_FILE}" >&2
     exit 0
 fi
 
