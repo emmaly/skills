@@ -34,10 +34,13 @@ loads. The version string is the refresh trigger:
 4. Restart the session — SessionStart hooks are registered at launch.
 
 Verify by asserting the *exact* new version directory exists — listing the parent
-will happily show you the old one and look like success:
+will happily show you the old one and look like success. Read the expected
+version out of the manifest rather than typing it, or this check goes stale on
+the next bump and starts passing against the previous release:
 
 ```sh
-test -d ~/.claude/plugins/cache/emmaly/emmaly-skills/20260809001 && echo ok
+v=$(jq -r .version ~/Projects/emmaly/skills/emmaly-skills/.claude-plugin/plugin.json)
+test -d ~/.claude/plugins/cache/emmaly/emmaly-skills/"$v" && echo "ok: $v"
 ```
 
 Both `.claude-plugin/marketplace.json` and `skills/emmaly-skills/.claude-plugin/plugin.json`
