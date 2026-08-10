@@ -1,11 +1,14 @@
 ## Hi, I'm Emmaly
 
-Automation and integration, mostly in Go. I've been writing it since early 2010,
-which makes me the third biggest fan.
+Automation and integration, mostly in Go. Paid to write software since 1996, and
+writing Go since early 2010, which makes me the third biggest fan. A lot of that
+turns into Go client libraries for other people's REST APIs. I enjoy it more than
+most people expect.
 
 The rest of it wanders: Home Assistant components, Twitch tooling, TinyGo on a
 micro:bit, a kernel module for a Logitech receiver I got annoyed at, a Toki Pona
-dictionary.
+dictionary. Most of the home automation is there to make the house cozier. I care
+about accessibility, and I'm opinionated about it.
 
 Most of these repos are experiments. I learn things by building them, so plenty
 of this is unfinished on purpose, and a few I use every day. One does nothing at
