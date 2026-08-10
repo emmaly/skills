@@ -18,7 +18,7 @@ description: This skill should be used when starting a new project or setting up
 
 ## Containerization
 
-- For projects that will be deployed via `emmaly-skills:deploy`, scaffold a `Dockerfile` alongside the project code
+- For projects that will be deployed as a container, scaffold a `Dockerfile` alongside the project code
 - Use multi-stage builds: build stage(s) for compiling, minimal final stage (e.g., `alpine`) for the runtime image
 - Match the Go version in the `golang` build stage to what's available on Docker Hub, not the locally installed version (see `emmaly-skills:go` containerization notes)
 
