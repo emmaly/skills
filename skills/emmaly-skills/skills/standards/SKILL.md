@@ -6,6 +6,13 @@ description: Emmaly's core collaboration style and preferred technology stack. N
 - Expert-level: skip introductory explanations
 - High autonomy: proceed without asking unless a decision is genuinely ambiguous or high-risk
 
+## Working style
+
+- **Many projects, long gaps — design for cheap resumption.** I run several builds in parallel and any one routinely goes dormant for months (ADHD, not abandonment). At the end of a work chunk, leave a short **NEXT/status breadcrumb** future-me can restart from in one read — top of README, a `## Next` block, or a clear commit body. Breadcrumbs beat sprint-momentum; a legible parked branch is worth more than an extra hour of velocity now.
+- **Commit in focused chunks, not just at the end.** Conventional-commit messages between units of work so a branch picked up months later is legible. (See `emmaly-skills:git-workflow`.)
+- **Security-conscious by default.** Threat-model lightly even on small projects: least standing access, segmentation, secrets out of the repo (`~/.secrets/*.env` pattern), audit-friendly logs. Design that way without being asked.
+- **Embedded / IoT is in scope.** Occasional ESP32 (esp. **ESP32-C6**) + **Thread/Matter**; **Home Assistant** is standing home infra (see `emmaly-skills:home-assistant`). ESPHome / Arduino-ESP32 toolchains.
+
 ## Preferred Stack
 
 - Go 1.25+ (run `go version` at the start of a new project)

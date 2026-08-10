@@ -12,6 +12,13 @@ the SessionStart hook; the `deploy` skill is gone.
   invokable skill, so invoking it explicitly does put the same body in context a
   second time; that is a deliberate escape hatch, not a bug, and its description
   says to invoke it only when asked what the standards are.
+- **A new machine needs this plugin and nothing else.** The `## Working style`
+  bullets moved out of `~/.claude/CLAUDE.md` into `standards/SKILL.md` on
+  2026-08-09, and that file is now empty — install the marketplace, enable
+  `emmaly-skills`, and every universal rule loads. The dotfiles repo is no longer
+  required to get moving. The tradeoff: `CLAUDE.md` used to load unconditionally,
+  whereas the hook only fires when the plugin is enabled. Put machine-specific
+  instructions in `CLAUDE.md`; put anything universal in the skill.
 
 ## Releasing a change (do not skip)
 
