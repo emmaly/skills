@@ -12,6 +12,13 @@ the SessionStart hook; the `deploy` skill is gone.
   invokable skill, so invoking it explicitly does put the same body in context a
   second time; that is a deliberate escape hatch, not a bug, and its description
   says to invoke it only when asked what the standards are.
+- **A new machine needs this plugin and nothing else.** The `## Working style`
+  bullets moved out of `~/.claude/CLAUDE.md` into `standards/SKILL.md` on
+  2026-08-09, and that file is now empty — install the marketplace, enable
+  `emmaly-skills`, and every universal rule loads. The dotfiles repo is no longer
+  required to get moving. The tradeoff: `CLAUDE.md` used to load unconditionally,
+  whereas the hook only fires when the plugin is enabled. Put machine-specific
+  instructions in `CLAUDE.md`; put anything universal in the skill.
 
 ## Releasing a change (do not skip)
 
@@ -27,10 +34,13 @@ loads. The version string is the refresh trigger:
 4. Restart the session — SessionStart hooks are registered at launch.
 
 Verify by asserting the *exact* new version directory exists — listing the parent
-will happily show you the old one and look like success:
+will happily show you the old one and look like success. Read the expected
+version out of the manifest rather than typing it, or this check goes stale on
+the next bump and starts passing against the previous release:
 
 ```sh
-test -d ~/.claude/plugins/cache/emmaly/emmaly-skills/20260809001 && echo ok
+v=$(jq -r .version ~/Projects/emmaly/skills/emmaly-skills/.claude-plugin/plugin.json)
+test -d ~/.claude/plugins/cache/emmaly/emmaly-skills/"$v" && echo "ok: $v"
 ```
 
 Both `.claude-plugin/marketplace.json` and `skills/emmaly-skills/.claude-plugin/plugin.json`
