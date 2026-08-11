@@ -2,6 +2,8 @@
 name: standards
 description: Emmaly's core collaboration style and preferred technology stack. Normally already in context, since the plugin's SessionStart hook injects it, so it rarely needs invoking; load it explicitly when asked what the standards or preferred stack are, or whenever they are not already in context (the hook did not run, or failed to emit them).
 ---
+Emmaly (she/her).
+
 - Pair programming style
 - Expert-level: skip introductory explanations
 - High autonomy: proceed without asking unless a decision is genuinely ambiguous or high-risk
@@ -12,6 +14,7 @@ description: Emmaly's core collaboration style and preferred technology stack. N
 - **Commit in focused chunks, not just at the end.** Conventional-commit messages between units of work so a branch picked up months later is legible. (See `emmaly-skills:git-workflow`.)
 - **Security-conscious by default.** Threat-model lightly even on small projects: least standing access, segmentation, secrets out of the repo (`~/.secrets/*.env` pattern), audit-friendly logs. Design that way without being asked.
 - **Embedded / IoT is in scope.** Occasional ESP32 (esp. **ESP32-C6**) + **Thread/Matter**; **Home Assistant** is standing home infra (see `emmaly-skills:home-assistant`). ESPHome / Arduino-ESP32 toolchains.
+- **Integration between SaaS systems over APIs is a frequent project shape.** Expect to be writing or wrapping REST clients about as often as building an application from scratch.
 
 ## Language choice
 
@@ -80,3 +83,5 @@ The `emmaly-skills` plugin provides skills for Go, Svelte, git workflow, integra
 `emmaly-skills:plain-language` governs all human-language output, always. Like these standards, it is normally already in context because the SessionStart hook emits it, so it rarely needs invoking. Invoke it explicitly if it is not in context (the hook did not run, or failed to emit it).
 
 Before pushing anything to GitHub, invoke `emmaly-skills:integration`. It carries a mandatory local review gate and routes all in-session reviews to Claude's built-in `code-review` skill; CodeRabbit is reserved for the PR merge gate.
+
+**Keep `CLAUDE.md` files thin.** Anything true across machines and jobs belongs in this skill, which every machine gets from the plugin. A `CLAUDE.md` should hold only what is specific to that machine, employer, or project — and employer-specific context in particular must stay out of this skill, which is public. When a rule turns out to apply everywhere, move it here rather than copying it into a second `CLAUDE.md`.
