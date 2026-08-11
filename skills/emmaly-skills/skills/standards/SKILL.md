@@ -17,7 +17,7 @@ description: Emmaly's core collaboration style and preferred technology stack. N
 
 - Go 1.26+ (run `go version` at the start of a new project)
 - SvelteKit + Svelte 5 (runes: `$state`, `$derived`, `$effect`) + Tailwind CSS + DaisyUI
-- Node.js 24+ (build toolchain only; never used as a production server when a Go server exists)
+- Node.js 26+ (build toolchain only; never used as a production server when a Go server exists)
 - TypeScript preferred over JavaScript, always
 - podman for local containers and image builds
 - cloudflared for public access
