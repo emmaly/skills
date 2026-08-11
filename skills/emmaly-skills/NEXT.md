@@ -1,7 +1,8 @@
 # Next — emmaly-skills
 
-Status as of 2026-08-09: laptop work recovered and merged. Standards now load via
-the SessionStart hook; the `deploy` skill is gone.
+Status as of 2026-08-11: laptop work recovered and merged. Standards now load via
+the SessionStart hook — verified firing in a real session — and the `deploy`
+skill is gone.
 
 ## Where things stand
 
@@ -59,10 +60,11 @@ debugging anything else. For iterating without a release, run
 
 ## To do
 
-- **Kubernetes deploy skill — designed, then deliberately deferred 2026-08-09.**
-  The `deploy` skill (podman-compose over SSH to a single remote host) was
-  removed rather than ported; on-prem now means the k3s cluster in
-  `~/Projects/kube`.
+- **Kubernetes deploy skill — designed 2026-08-09, deferred, un-deferred
+  2026-08-11.** The `deploy` skill (podman-compose over SSH to a single remote
+  host) was removed rather than ported; on-prem now means the k3s cluster in
+  `~/Projects/kube`, and that is now the *default* target for new work rather
+  than one option among several.
 
   Two things were settled in that conversation, so the next attempt does not
   restart from zero:
@@ -70,29 +72,41 @@ debugging anything else. For iterating without a release, run
   1. **The skill's job would be steady-state cluster conventions** — the rules
      that decide whether a deployment is correct — not the podlap migration
      procedure and not day-2 kubectl recipes.
-  2. **`docs/MIGRATING-A-PROJECT.md` already has the seam to cut along.** Lines
-     25–875 are durable conventions (non-negotiable rules, what the cluster does
-     and does not provide, required layout, storage, images, secrets, networking,
-     pod hygiene, probes, resources). Line 876 onward is `## The migration
-     procedure`, which is podlap-specific and dies with the wipe. The first half
-     is the skill; the second half is not.
+  2. **`docs/MIGRATING-A-PROJECT.md` already has the seam to cut along.**
+     Everything from `## The rules that are not negotiable` through
+     `## Pod hygiene` is durable convention — what the cluster does and does not
+     provide, required layout, storage, images, secrets, networking, pod hygiene.
+     From `## The migration procedure` onward is podlap-specific and dies with
+     the wipe. The first half is the skill; the second half is not.
 
-  **Deferred until after the podlap wipe**, because `unifi` and
-  `charmcrafterlite` + `charmy-webfetch` are still unmigrated and are exactly the
-  shapes that would rewrite conventions — UDP that an HTTP Ingress cannot carry,
-  adopted devices holding an inform URL, and a pair that is not containerised at
-  all. Freezing rules into a skill before those two land would bake in conventions
-  they are about to challenge. Let events settle the seam rather than judgement.
+     Cut along the **headings**, not line numbers. This note originally said
+     "lines 25–875" and the seam had moved to 905 within two days, because every
+     migration patches the contract.
 
-  Note the earlier caution here — "the conventions are not yet frozen, 2 of 18
-  services" — is superseded: thirteen have migrated, and
-  `docs/MIGRATION-STATUS.md` now states the contract is done being written by
-  migrations. The reason to wait is the two unusual shapes, not immaturity.
+  **No longer deferred, as of 2026-08-11.** Kubernetes is now the default
+  deployment target (`standards/SKILL.md` says so), so the skill should be
+  written rather than waited on. What changed: `charmcrafterlite` and
+  `charmy-webfetch` migrated together as one pod on 2026-08-09, and that round
+  produced **five** contract fixes, the smallest of any migration — the series
+  ran 10, 3, 8, 8, 9, 7, 11, 7, 9, 9, 12, 5. The conventions have converged.
+
+  **Confirm two things first, because the ledger and the room disagree.**
+  Emmaly reports on 2026-08-11 that `unifi` migrated and that podlap is probably
+  empty, pending a manual check. `~/Projects/kube/docs/MIGRATION-STATUS.md` does
+  not agree: as of commit `950850d` it still lists `unifi` as deferred in three
+  places, including its row in the services table, and the newest commit there is
+  the charmcrafterlite round. That ledger calls itself "the only thing that
+  survives a fresh session", so if `unifi` did move, **the gap is in the ledger,
+  not here** — fix it there first. `unifi` also matters to the skill's content:
+  it is the one workload needing UDP that an HTTP Ingress cannot carry, so how it
+  was solved belongs in the non-HTTP section.
 
   When picking this up, the open question is where the conventions should live:
   move them out of the kube contract into the skill (one source of truth, but a
   second PR against `~/Projects/kube`), or keep kube authoritative and inline only
   the decisive rules. Do not simply duplicate them — that is the drift failure
   this plugin just spent a session removing.
-- `standards/SKILL.md` → "Deployment Targets" still needs a Kubernetes-shaped
-  answer once that skill exists; right now it just points at `~/Projects/kube`.
+- `standards/SKILL.md` → "Deployment Targets" now names Kubernetes as the
+  default and carries the shape (project-repo manifests, `ghcr.io/emmaly/*`
+  images, Longhorn storage, `route.sh` + Ingress). Revisit once the skill exists,
+  so the standards can point at it instead of at `~/Projects/kube` directly.
