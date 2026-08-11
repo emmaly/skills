@@ -84,6 +84,6 @@ The `emmaly-skills` plugin provides skills for Go, Svelte, git workflow, integra
 
 Before pushing anything to GitHub, invoke `emmaly-skills:integration`. It carries a mandatory local review gate and routes all in-session reviews to Claude's built-in `code-review` skill; CodeRabbit is reserved for the PR merge gate.
 
-**Keep `CLAUDE.md` files thin.** Anything true across machines and jobs belongs in this skill, which every machine gets from the plugin. A `CLAUDE.md` should hold only what is specific to that machine, employer, or project. When a rule turns out to apply everywhere, move it here rather than copying it into a second `CLAUDE.md`.
+**Keep `CLAUDE.md` files thin.** Anything true across machines and jobs belongs in this skill, which every machine with the plugin enabled gets automatically. A `CLAUDE.md` should hold only what is specific to that machine, employer, or project. When a rule turns out to apply everywhere, move it here rather than copying it into a second `CLAUDE.md`.
 
 This skill is **public**. Emmaly's own infrastructure conventions are fine here and are deliberately named above. Anything belonging to an employer or client is not — no company names, internal hostnames, ticket systems, or customer details. If a rule cannot be stated without those, it belongs in that machine's `CLAUDE.md`.
