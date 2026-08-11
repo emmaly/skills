@@ -142,8 +142,9 @@ argument is named in the rule.
 - **A new machine needs this plugin and nothing else — with one exception.** The
   `## Working style` bullets moved out of `~/.claude/CLAUDE.md` into
   `standards/SKILL.md` on 2026-08-09, and that file is now empty — install the
-  marketplace, enable `emmaly-skills`, and every universal rule loads. The
-  dotfiles repo is no longer required to get moving. **The exception is
+  marketplace, enable `emmaly-skills`, and every universal rule loads.
+  `~/.claude/CLAUDE.md` is now empty as a result, and the dotfiles repo is no
+  longer required to get moving. **The exception is
   Kubernetes**: the cluster conventions live in `~/Projects/kube`, so that repo
   must be cloned for deployment work. Closing that gap is exactly the open
   question in the Kubernetes to-do below — moving the conventions into the skill
