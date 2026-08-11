@@ -60,10 +60,11 @@ debugging anything else. For iterating without a release, run
 
 ## To do
 
-- **Kubernetes deploy skill — designed, then deliberately deferred 2026-08-09.**
-  The `deploy` skill (podman-compose over SSH to a single remote host) was
-  removed rather than ported; on-prem now means the k3s cluster in
-  `~/Projects/kube`.
+- **Kubernetes deploy skill — designed 2026-08-09, deferred, un-deferred
+  2026-08-11.** The `deploy` skill (podman-compose over SSH to a single remote
+  host) was removed rather than ported; on-prem now means the k3s cluster in
+  `~/Projects/kube`, and that is now the *default* target for new work rather
+  than one option among several.
 
   Two things were settled in that conversation, so the next attempt does not
   restart from zero:
@@ -82,27 +83,30 @@ debugging anything else. For iterating without a release, run
      "lines 25–875" and the seam had moved to 905 within two days, because every
      migration patches the contract.
 
-  **Why it is still deferred, as of 2026-08-11.** The case has narrowed since
-  2026-08-09. `charmcrafterlite` and `charmy-webfetch` migrated together as one
-  pod on 2026-08-09, which removes half the original reason to wait — and that
-  round produced **five** contract fixes, the smallest of any migration
-  (the series ran 10, 3, 8, 8, 9, 7, 11, 7, 9, 9, 12, 5). Fourteen services have
-  migrated; `unifi` is the only one still parked.
+  **No longer deferred, as of 2026-08-11.** Kubernetes is now the default
+  deployment target (`standards/SKILL.md` says so), so the skill should be
+  written rather than waited on. What changed: `charmcrafterlite` and
+  `charmy-webfetch` migrated together as one pod on 2026-08-09, and that round
+  produced **five** contract fixes, the smallest of any migration — the series
+  ran 10, 3, 8, 8, 9, 7, 11, 7, 9, 9, 12, 5. The conventions have converged.
 
-  What remains is weaker than what it replaced. `unifi` needs UDP that an HTTP
-  Ingress cannot carry, so it is likely to *add* a section about non-HTTP
-  workloads rather than rewrite the HTTP conventions the skill would carry. The
-  honest reason to keep waiting is now just that podlap has not been wiped, so
-  the durable/migration seam is not yet settled by events.
-
-  **This is a decision point, not a standing hold.** If the next look happens
-  before the wipe, weigh writing it anyway against waiting — do not simply
-  inherit the deferral.
+  **Confirm two things first, because the ledger and the room disagree.**
+  Emmaly reports on 2026-08-11 that `unifi` migrated and that podlap is probably
+  empty, pending a manual check. `~/Projects/kube/docs/MIGRATION-STATUS.md` does
+  not agree: as of commit `950850d` it still lists `unifi` as deferred in three
+  places, including its row in the services table, and the newest commit there is
+  the charmcrafterlite round. That ledger calls itself "the only thing that
+  survives a fresh session", so if `unifi` did move, **the gap is in the ledger,
+  not here** — fix it there first. `unifi` also matters to the skill's content:
+  it is the one workload needing UDP that an HTTP Ingress cannot carry, so how it
+  was solved belongs in the non-HTTP section.
 
   When picking this up, the open question is where the conventions should live:
   move them out of the kube contract into the skill (one source of truth, but a
   second PR against `~/Projects/kube`), or keep kube authoritative and inline only
   the decisive rules. Do not simply duplicate them — that is the drift failure
   this plugin just spent a session removing.
-- `standards/SKILL.md` → "Deployment Targets" still needs a Kubernetes-shaped
-  answer once that skill exists; right now it just points at `~/Projects/kube`.
+- `standards/SKILL.md` → "Deployment Targets" now names Kubernetes as the
+  default and carries the shape (project-repo manifests, `ghcr.io/emmaly/*`
+  images, Longhorn storage, `route.sh` + Ingress). Revisit once the skill exists,
+  so the standards can point at it instead of at `~/Projects/kube` directly.
