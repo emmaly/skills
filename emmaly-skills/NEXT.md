@@ -216,16 +216,19 @@ debugging anything else. For iterating without a release, run
   produced **five** contract fixes, the smallest of any migration. The series
   ran 10, 3, 8, 8, 9, 7, 11, 7, 9, 9, 12, 5. The conventions have converged.
 
-  **Confirm two things first, because the ledger and the room disagree.**
-  Emmaly reports on 2026-08-11 that `unifi` migrated and that podlap is probably
-  empty, pending a manual check. `~/Projects/kube/docs/MIGRATION-STATUS.md` does
-  not agree: as of commit `950850d` it still lists `unifi` as deferred in three
-  places, including its row in the services table, and the newest commit there is
-  the charmcrafterlite round. That ledger calls itself "the only thing that
-  survives a fresh session", so if `unifi` did move, **the gap is in the ledger,
-  not here**. Fix it there first. `unifi` also matters to the skill's content:
-  it is the one workload needing UDP that an HTTP Ingress cannot carry, so how it
-  was solved belongs in the non-HTTP section.
+  **The migration is finished.** `unifi` landed 2026-08-10 (kube `5f0451f`),
+  making it fifteen migrated, two dropped, nothing parked. podlap runs no
+  services; what blocks the wipe is data and routing, not processes.
+
+  **`unifi` added capability rather than rewriting anything**, which is what the
+  deferral was waiting to find out. It brought **MetalLB** (LAN addresses via
+  `loadBalancerClass`, coexisting with k3s's ServiceLB) and the **Tailscale
+  operator** (a Service gets its own tailnet node with a real certificate), and
+  split into two planes: devices on a MetalLB VIP, admin UI on the tailnet. The
+  HTTP conventions were untouched. So the skill now has four exposure levels to
+  document, not one — cluster-internal, LAN, tailnet, public — and
+  `standards/SKILL.md` already carries that ladder. Full detail is in
+  `~/Projects/kube/docs/UNIFI-DESIGN.md` and `unifi/README.md`.
 
   When picking this up, the open question is where the conventions should live:
   move them out of the kube contract into the skill (one source of truth, but a

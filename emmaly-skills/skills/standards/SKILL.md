@@ -70,7 +70,7 @@ quickly is not one. A slower Go answer beats a fast Python one every time.
 **Default to the self-hosted Kubernetes cluster.** Unless a project says otherwise, assume it is deployed there.
 
 - **Kubernetes (default)**: a self-hosted k3s cluster. Manifests live in the project's own repo, images in `ghcr.io/emmaly/*`, storage on Longhorn (the default StorageClass). The conventions live in `~/Projects/kube`: start at that README, then `docs/MIGRATING-A-PROJECT.md` from `## The rules that are not negotiable` through `## Pod hygiene`. There is no deployment skill yet, so read those rather than inventing a deployment shape
-  - **Deploying there is the default; publishing to the internet is not.** `cloudflared/route.sh <host>` plus an Ingress makes a service publicly reachable. Ask first, unless the project already owns that hostname and you are restoring it. Cluster-internal by default; public on purpose
+  - **Reach for the narrowest exposure that works.** Cluster-internal is the default. A LAN address comes from a MetalLB service via `loadBalancerClass` — also the answer for UDP or anything else an HTTP Ingress cannot carry. Private remote access is a Tailscale-operator service, which gives it its own tailnet node with a real certificate. Public is the last step, not the assumed one: `cloudflared/route.sh <host>` plus an Ingress puts it on the internet, so ask first unless the project already owns that hostname and you are restoring it
 - **Cloud**: Google Cloud Run or Firebase Functions, when there is a reason to be off-cluster
 - **CLI tools**: standalone binaries, often just for the local machine
 - **Windows**: occasionally Windows desktop or Windows Services (not often the primary target)
