@@ -49,6 +49,6 @@ description: Emmaly's core collaboration style and preferred technology stack. N
 
 The `emmaly-skills` plugin provides skills for Go, Svelte, git workflow, integration, project setup, Home Assistant, documentation review, and plain language. The available skills list is authoritative. Check it, and invoke the relevant `emmaly-skills:*` skill when working in those areas.
 
-`emmaly-skills:plain-language` is not one to invoke on demand: like these standards, it is emitted into every session by the SessionStart hook and governs all human-language output at all times.
+`emmaly-skills:plain-language` governs all human-language output, always. Like these standards, it is normally already in context because the SessionStart hook emits it, so it rarely needs invoking. Invoke it explicitly if it is not in context (the hook did not run, or failed to emit it).
 
 Before pushing anything to GitHub, invoke `emmaly-skills:integration`. It carries a mandatory local review gate that must run before every push.
