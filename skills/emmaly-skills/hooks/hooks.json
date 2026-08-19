@@ -5,7 +5,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/emit-standards.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/emit-skill-body.sh\" standards \"Standards (emmaly-skills)\"",
+            "shell": "bash",
+            "async": false
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/emit-skill-body.sh\" plain-language \"Plain Language (emmaly-skills): always active, applies to every human-language output\"",
             "shell": "bash",
             "async": false
           }
