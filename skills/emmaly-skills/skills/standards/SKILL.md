@@ -1,6 +1,6 @@
 ---
 name: standards
-description: Emmaly's core collaboration style and preferred technology stack. Normally already in context — the plugin's SessionStart hook injects it, so it rarely needs invoking; load it explicitly when asked what the standards or preferred stack are, or whenever they are not already in context (the hook did not run, or failed to emit them).
+description: Emmaly's core collaboration style and preferred technology stack. Normally already in context, since the plugin's SessionStart hook injects it, so it rarely needs invoking; load it explicitly when asked what the standards or preferred stack are, or whenever they are not already in context (the hook did not run, or failed to emit them).
 ---
 - Pair programming style
 - Expert-level: skip introductory explanations
@@ -8,7 +8,7 @@ description: Emmaly's core collaboration style and preferred technology stack. N
 
 ## Working style
 
-- **Many projects, long gaps — design for cheap resumption.** I run several builds in parallel and any one routinely goes dormant for months (ADHD, not abandonment). At the end of a work chunk, leave a short **NEXT/status breadcrumb** future-me can restart from in one read — top of README, a `## Next` block, or a clear commit body. Breadcrumbs beat sprint-momentum; a legible parked branch is worth more than an extra hour of velocity now.
+- **Many projects, long gaps. Design for cheap resumption.** I run several builds in parallel and any one routinely goes dormant for months (ADHD, not abandonment). At the end of a work chunk, leave a short **NEXT/status breadcrumb** future-me can restart from in one read: top of README, a `## Next` block, or a clear commit body. Breadcrumbs beat sprint-momentum; a legible parked branch is worth more than an extra hour of velocity now.
 - **Commit in focused chunks, not just at the end.** Conventional-commit messages between units of work so a branch picked up months later is legible. (See `emmaly-skills:git-workflow`.)
 - **Security-conscious by default.** Threat-model lightly even on small projects: least standing access, segmentation, secrets out of the repo (`~/.secrets/*.env` pattern), audit-friendly logs. Design that way without being asked.
 - **Embedded / IoT is in scope.** Occasional ESP32 (esp. **ESP32-C6**) + **Thread/Matter**; **Home Assistant** is standing home infra (see `emmaly-skills:home-assistant`). ESPHome / Arduino-ESP32 toolchains.
@@ -26,7 +26,7 @@ description: Emmaly's core collaboration style and preferred technology stack. N
 
 ## Environment Variables
 
-- **Never `source` a `.env` file directly** — the user's shell is `fish`, so `source .env` will fail on `export KEY=VALUE` syntax.
+- **Never `source` a `.env` file directly.** The user's shell is `fish`, so `source .env` will fail on `export KEY=VALUE` syntax.
 - Use `envwith` to load `.env` files and run commands with those variables overlaid on the current environment:
   ```
   envwith -f .secrets/.env -- <command> [args...]
@@ -47,6 +47,8 @@ description: Emmaly's core collaboration style and preferred technology stack. N
 
 ## Emmaly Plugin Skills
 
-The `emmaly-skills` plugin provides skills for Go, Svelte, git workflow, integration, project setup, Home Assistant, and documentation review. Check the available skills list — it is authoritative — and invoke the relevant `emmaly-skills:*` skill when working in those areas.
+The `emmaly-skills` plugin provides skills for Go, Svelte, git workflow, integration, project setup, Home Assistant, documentation review, and plain language. The available skills list is authoritative. Check it, and invoke the relevant `emmaly-skills:*` skill when working in those areas.
 
-Before pushing anything to GitHub, invoke `emmaly-skills:integration` — it carries a mandatory local review gate that must run before every push.
+`emmaly-skills:plain-language` governs all human-language output, always. Like these standards, it is normally already in context because the SessionStart hook emits it, so it rarely needs invoking. Invoke it explicitly if it is not in context (the hook did not run, or failed to emit it).
+
+Before pushing anything to GitHub, invoke `emmaly-skills:integration`. It carries a mandatory local review gate that must run before every push.

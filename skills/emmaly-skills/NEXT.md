@@ -1,18 +1,34 @@
 # Next — emmaly-skills
 
-Status as of 2026-08-11: laptop work recovered and merged. Standards now load via
-the SessionStart hook — verified firing in a real session — and the `deploy`
-skill is gone.
+Status as of 2026-08-18: `plain-language` added and wired into the SessionStart
+hook alongside `standards`. Both load automatically; the `deploy` skill is gone.
+
+**In progress:** the `plain-language` skill is written and released but has not
+been exercised against real output yet. Next step is to try it, note which
+AI-isms still slip through, and add them to the banned lists in
+`skills/plain-language/SKILL.md`. Treat that file as a living list.
 
 ## Where things stand
 
-- `hooks/emit-standards.sh` prints `skills/standards/SKILL.md` into every session
-  (startup, resume, clear, **compact**). It is the only *automatic* loader — the
+- `hooks/emit-skill-body.sh <skill-dir> <heading>` prints a skill body into every
+  session (startup, resume, clear, **compact**). `hooks.json` calls it twice, for
+  `standards` and for `plain-language`. It was `emit-standards.sh` until
+  2026-08-18, hardcoded to one skill; generalising it was cheaper than a second
+  near-identical script. It is the only *automatic* loader — the
   `<!-- emmaly:standards -->` block was removed from `~/.claude/CLAUDE.md` and the
   `apply-standards` skill that wrote it is deleted. `standards` is still an
   invokable skill, so invoking it explicitly does put the same body in context a
   second time; that is a deliberate escape hatch, not a bug, and its description
-  says to invoke it only when asked what the standards are.
+  says to invoke it only when asked what the standards are. The same applies to
+  `plain-language`.
+- **`plain-language` is always-on by design.** It governs every human-language
+  output: chat, commit messages, PR bodies, READMEs, comments, UI copy, error and
+  log strings. It is emitted rather than left as an on-demand skill because a
+  skill only invoked when someone remembers it would never fire on the outputs
+  that need it most. Cost of that choice: roughly 800 words of context per
+  session on top of the standards. If context pressure ever forces a trim, cut
+  the word list before cutting the revision pass — the pass is what makes it
+  iterate.
 - **A new machine needs this plugin and nothing else.** The `## Working style`
   bullets moved out of `~/.claude/CLAUDE.md` into `standards/SKILL.md` on
   2026-08-09, and that file is now empty — install the marketplace, enable
