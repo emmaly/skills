@@ -16,9 +16,13 @@ set -euo pipefail
 # No matcher is set in hooks.json, so this fires on startup, resume, clear, and
 # compact. The last one matters, since compaction can summarize the body away.
 
+# Fail loudly on a bad call. A misregistered hook that exits 0 while emitting
+# nothing looks identical to a working one, which is the silent-stale-build
+# failure this plugin has hit before. The zero exit below is for the missing-file
+# case only, which is a legitimate state (a skill was renamed or removed).
 if [[ $# -ne 2 ]]; then
     echo "emit-skill-body.sh: usage: emit-skill-body.sh <skill-dir-name> <heading>" >&2
-    exit 0
+    exit 1
 fi
 
 SKILL_NAME="$1"
