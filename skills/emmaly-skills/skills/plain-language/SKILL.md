@@ -9,7 +9,7 @@ If it cannot be said simply and clearly, it is not worth saying.
 
 Applies to every human-language output, in chat and inside code. Not to code
 itself, identifiers, quoted source material, or copy the user wrote and wants
-kept.
+to keep.
 
 ## Banned punctuation
 
