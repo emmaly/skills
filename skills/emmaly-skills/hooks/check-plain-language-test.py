@@ -93,8 +93,10 @@ def file_cases(tmpdir):
     """Cases needing a real message file on disk, for the -F path."""
     dirty = os.path.join(tmpdir, "dirty.msg")
     clean = os.path.join(tmpdir, "clean.msg")
-    with open(dirty, "w", encoding="utf-8") as handle:
-        handle.write(f"fix: thing\n\nbody {EM} here\n")
+    spaced = os.path.join(tmpdir, "my message.msg")
+    for path in (dirty, spaced):
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(f"fix: thing\n\nbody {EM} here\n")
     with open(clean, "w", encoding="utf-8") as handle:
         handle.write("fix: thing\n\nbody here\n")
     return [
@@ -108,6 +110,16 @@ def file_cases(tmpdir):
          {"tool_name": "Bash", "tool_input": {"command": f"{GC} -F {tmpdir}/nope.msg"}}),
         ("-F - is the heredoc form, not a path", 0,
          {"tool_name": "Bash", "tool_input": {"command": f"{GC} -F - <<EOF\nfix: thing\nEOF"}}),
+        ("-Fpath attached form", 2,
+         {"tool_name": "Bash", "tool_input": {"command": f"{GC} -F{dirty}"}}),
+        ("quoted path containing a space", 2, {"tool_name": "Bash", "tool_input":
+         {"command": f'{GC} -F "{spaced}"'}}),
+        ("--file= with a quoted path containing a space", 2, {"tool_name": "Bash",
+         "tool_input": {"command": f'{GC} --file="{spaced}"'}}),
+        # An unbalanced quote makes shlex raise, which is what the regex
+        # fallback in message_files exists for.
+        ("unparseable command still finds the message file", 2, {"tool_name": "Bash",
+         "tool_input": {"command": f'{GC} -F {dirty} && echo "unclosed'}}),
     ]
 
 

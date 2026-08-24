@@ -33,6 +33,7 @@ wedge a session.
 
 import json
 import re
+import shlex
 import sys
 
 DASHES = "—–"  # em, en
@@ -119,17 +120,40 @@ def written_text(tool_input: dict) -> str:
 
 
 def message_files(command: str):
-    """Paths given to -F, --file, or --file=, which hold the message text.
+    """Paths given to -F, --file, --file=, or -Fpath, holding the message text.
 
-    `-` means stdin, which is the heredoc case and is already in the command
-    text. Quotes are stripped because the path is read from a shell string.
+    Tokenised the way a shell would, so a quoted path with a space in it stays
+    one path. A command shlex cannot parse, an unbalanced quote in a heredoc for
+    instance, falls back to the regex, which handles the unquoted forms.
+
+    `-` means stdin, which is the heredoc case, and its text is already in the
+    command.
     """
+    try:
+        tokens = shlex.split(command, comments=False, posix=True)
+    except ValueError:
+        return [
+            raw
+            for match in MESSAGE_FILE_RE.finditer(command)
+            for raw in [(match.group("eq") or match.group("sep") or "").strip("\"'")]
+            if raw and raw != "-"
+        ]
+
     paths = []
-    for match in MESSAGE_FILE_RE.finditer(command):
-        raw = (match.group("eq") or match.group("sep") or "").strip("\"'")
-        if raw and raw != "-":
-            paths.append(raw)
-    return paths
+    expecting = False
+    for token in tokens:
+        if expecting:
+            expecting = False
+            if token != "-":
+                paths.append(token)
+            continue
+        if token in ("-F", "--file"):
+            expecting = True
+        elif token.startswith("--file="):
+            paths.append(token[len("--file="):])
+        elif token.startswith("-F") and len(token) > 2:
+            paths.append(token[2:])
+    return [p for p in paths if p and p != "-"]
 
 
 def read_text(path: str) -> str:
