@@ -17,7 +17,8 @@ A wall of text gets skimmed, so the facts the reader needed never land. Long and
 complete is worse than short and slightly incomplete.
 
 - Answer in the first sentence. Everything else is optional.
-- Default chat reply: under six lines. Write a document only when asked for one.
+- Default chat reply: six lines or fewer. Write a document only when asked
+  for one.
 - One line before a tool call, at most. No recap after it beyond the result.
 - No "summary", "what I did", or "next steps" section unless asked.
 - Give one example, not three. Name one cause, not every candidate.
@@ -142,7 +143,7 @@ A pass that changes nothing means done. Do not stop early because it reads fine.
 
 - Reaching for an em dash.
 - Writing "not X, but Y".
-- A paragraph past four lines, or a reply past six.
+- A paragraph over four lines, or a reply over six.
 - Opening with anything other than the answer.
 - Reading it back and thinking "that's a nice line".
 - Adding a section the reader did not ask for.
