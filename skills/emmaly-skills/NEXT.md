@@ -1,12 +1,16 @@
-# Next — emmaly-skills
+# Next: emmaly-skills
 
-Status as of 2026-08-18: `plain-language` added and wired into the SessionStart
-hook alongside `standards`. Both load automatically; the `deploy` skill is gone.
+Status as of 2026-08-24: `plain-language` rewritten after real use. Emmaly's
+complaint was verbosity first, AI-isms second, so the skill now leads with a
+"Length comes first" section (answer in sentence one, six-line default reply, no
+unrequested summary or next-steps sections) and adds a "No drama" section for
+narrative tells like "here's where it gets interesting" and personified code.
+Ideas were taken from `~/Downloads/unslop.md` and reworded, not copied. Released
+as `20260824001`.
 
-**In progress:** the `plain-language` skill is written and released but has not
-been exercised against real output yet. Next step is to try it, note which
-AI-isms still slip through, and add them to the banned lists in
-`skills/plain-language/SKILL.md`. Treat that file as a living list.
+**In progress:** watch whether replies actually get shorter. If they do not, the
+next lever is a harder cap in the length section, not more banned words. The
+banned lists are still a living list; add tells as they slip through.
 
 ## Where things stand
 
