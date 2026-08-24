@@ -8,9 +8,58 @@ narrative tells like "here's where it gets interesting" and personified code.
 Ideas were taken from `~/Downloads/unslop.md` and reworded, not copied. Released
 as `20260824001`.
 
+Status as of 2026-08-24, later the same day: an efficacy review of
+`plain-language` found seven gaps and all seven are fixed in `20260824002`.
+The one measurement worth keeping: em dashes appeared in 15 of the 32 commit
+messages written before 2026-08-18, when the skill landed, and in 0 of the 11
+written after. That is the only hard adherence number this repo has.
+
+What the review changed:
+
+1. **Precedence section.** The skill contradicted the harness, which can require
+   a narration line, a restatement, or a `result:` marker, and contradicted the
+   PR template in `git-workflow`. Nothing said which wins. Now a required shape
+   wins, and the rules apply inside it.
+2. **Severity has a sanctioned form.** Banning `crucial`, `vital`, and stakes
+   talk left no way to flag real danger. The fix is in `No drama`: name the
+   trigger and the consequence, and put it in the first sentence. The emphasis
+   words stay banned as substitutes for the fact, not as a rule against warning
+   anyone.
+3. **Terms of art are exempt.** The ban list hit attack vector, first-class
+   function, comprehensive test coverage, and the agent harness. The old
+   exception covered identifiers only. Test is now whether a reader in that
+   field would hear a substitution as a different claim.
+4. **`Short-form text` section.** The description promised error messages, log
+   lines, and UI copy; every rule in the body was chat-shaped.
+5. **A hook now enforces the dash rule.** See below.
+6. **`If you follow nothing else`.** 49 rules with flat priority, roughly 40 of
+   them single words, meant the three that matter competed with the rest.
+7. **The revision pass is a checklist, not a loop.** "Repeat until a pass
+   changes nothing, up to three" was unverifiable and cheap to claim.
+
+- **`hooks/check-plain-language.py` is the only mechanical gate.** PostToolUse on
+  Write/Edit/MultiEdit checks prose files, PreToolUse on Bash checks
+  `git commit`. It looks for em and en dashes and nothing else, because that is
+  the one rule with no false positives. Word-list and sentence-shape checks would
+  fire on the ban list itself, on quoted tool output, and on every legitimate
+  term of art, so those stay with the model. Two deliberate narrowings: it reads
+  only the text being written, never the rest of the file, so editing an old
+  document does not block unrelated work, and it skips backticks and fenced
+  blocks, which is the escape hatch for quoting a dash. `python3` is a new
+  runtime dependency; the other hook is bash. Run
+  `python3 skills/emmaly-skills/hooks/check-plain-language-test.py` before
+  changing it. 15 cases, and the false-positive ones matter more than the
+  catches.
+
 **In progress:** watch whether replies actually get shorter. If they do not, the
 next lever is a harder cap in the length section, not more banned words. The
 banned lists are still a living list; add tells as they slip through.
+
+**Open question, deliberately not fixed:** 23 em dashes remain across 7 sibling
+`SKILL.md` files, all written before 2026-08-18. Those files load into context,
+and models copy in-context style, so they push the other way. Backfilling them
+is a mechanical edit that also churns files nobody is otherwise touching.
+Undecided.
 
 ## Where things stand
 
