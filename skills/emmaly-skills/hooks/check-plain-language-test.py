@@ -49,8 +49,25 @@ CASES = [
     ("searching for a dash is not writing one", 0,
      {"tool_name": "Bash", "tool_input": {"command": f'grep -rn "{EM}" .'}}),
     ("malformed payload does not wedge the session", 0, "not json"),
+    ("valid JSON of the wrong shape", 0, "5"),
+    ("JSON array instead of an object", 0, "[1, 2]"),
     ("missing tool_input", 0, {"tool_name": "Write"}),
     ("unrelated tool", 0, {"tool_name": "Read", "tool_input": {"file_path": "a.md"}}),
+    ("MultiEdit edits is not a list", 0,
+     {"tool_name": "MultiEdit", "tool_input": {"file_path": "a.md", "edits": "oops"}}),
+    ("MultiEdit edits holds a non-dict", 0,
+     {"tool_name": "MultiEdit", "tool_input": {"file_path": "a.md", "edits": ["oops"]}}),
+    # A four-backtick fence stays open across three-backtick lines, so the dash
+    # after the inner marker is still inside the block.
+    ("longer fence survives a shorter inner marker", 0,
+     {"tool_name": "Write", "tool_input": {"file_path": "a.md",
+      "content": f"intro\n````\n```\nfoo {EM} bar\n```\n````\nafter"}}),
+    ("prose after a longer fence closes is still checked", 2,
+     {"tool_name": "Write", "tool_input": {"file_path": "a.md",
+      "content": f"````\n```\ncode\n```\n````\nprose {EM} here"}}),
+    ("tilde fence is not closed by backticks", 0,
+     {"tool_name": "Write", "tool_input": {"file_path": "a.md",
+      "content": f"~~~\n```\nfoo {EM} bar\n~~~"}}),
 ]
 
 

@@ -35,21 +35,35 @@ DASHES = "—–"  # em, en
 DASH_RE = re.compile(f"[{DASHES}]")
 PROSE_SUFFIXES = (".md", ".mdx", ".markdown", ".txt", ".rst")
 
-FENCE_RE = re.compile(r"^\s*(```|~~~)", re.M)
+FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
 
 def strip_code(text: str) -> str:
-    """Blank out fenced blocks and inline code, keeping line numbers intact."""
-    lines = text.split("\n")
+    """Blank out fenced blocks and inline code, keeping line numbers intact.
+
+    A fence closes only on the same character at the same length or longer, so
+    a four-backtick block that contains three-backtick lines stays one block.
+    Getting this wrong flips the parser inside out and reports every later line
+    as prose, or none of them.
+    """
     out = []
-    in_fence = False
-    for line in lines:
-        if FENCE_RE.match(line):
-            in_fence = not in_fence
-            out.append("")
-            continue
-        out.append("" if in_fence else INLINE_CODE_RE.sub("", line))
+    fence = None  # (character, length) of the fence currently open
+    for line in text.split("\n"):
+        match = FENCE_RE.match(line)
+        if match:
+            marker = match.group(1)
+            char, length = marker[0], len(marker)
+            if fence is None:
+                fence = (char, length)
+                out.append("")
+                continue
+            if char == fence[0] and length >= fence[1]:
+                fence = None
+                out.append("")
+                continue
+            # A shorter or different marker inside a block is content.
+        out.append("" if fence else INLINE_CODE_RE.sub("", line))
     return "\n".join(out)
 
 
@@ -63,11 +77,20 @@ def offenders(text: str):
 
 
 def written_text(tool_input: dict) -> str:
-    """Just the text this call authors, not the whole file."""
+    """Just the text this call authors, not the whole file.
+
+    Every shape is checked rather than assumed. A hook that raises on an
+    unexpected payload fails the tool call it was only supposed to inspect.
+    """
     if "content" in tool_input:  # Write
         return str(tool_input["content"])
     if "edits" in tool_input:  # MultiEdit
-        return "\n".join(str(e.get("new_string", "")) for e in tool_input["edits"])
+        edits = tool_input["edits"]
+        if not isinstance(edits, list):
+            return ""
+        return "\n".join(
+            str(e.get("new_string", "")) for e in edits if isinstance(e, dict)
+        )
     return str(tool_input.get("new_string", ""))  # Edit
 
 
@@ -81,6 +104,8 @@ def main() -> None:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
         return
+    if not isinstance(payload, dict):
+        return  # Valid JSON, wrong shape. A bare number parses fine.
 
     tool = payload.get("tool_name", "")
     tool_input = payload.get("tool_input") or {}
