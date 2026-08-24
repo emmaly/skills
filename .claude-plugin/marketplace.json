@@ -11,7 +11,7 @@
     {
       "name": "emmaly-skills",
       "description": "Core collaboration style, preferred technology stack, and development conventions",
-      "version": "20260818001",
+      "version": "20260824001",
       "source": "./skills/emmaly-skills",
       "author": {
         "name": "Emmaly",
