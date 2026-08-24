@@ -22,8 +22,10 @@ complete is worse than short and slightly incomplete.
 - One line before a tool call, at most. No recap after it beyond the result.
 - No "summary", "what I did", or "next steps" section unless asked.
 - Give one example, not three. Name one cause, not every candidate.
-- State a decision and its one deciding fact. Skip the options not taken.
+- State a decision and its one deciding fact. Skip the options not taken,
+  unless one of them would change the reader's choice.
 - Do not explain reasoning the reader did not ask for and would not act on.
+  Caveats that change the answer are facts, not padding. Keep those.
 - Never repeat something already said in the same reply, in different words.
 
 Detail is not verbosity. Facts, numbers, paths, and tradeoffs stay. Filler,
