@@ -35,6 +35,13 @@ DASHES = "—–"  # em, en
 DASH_RE = re.compile(f"[{DASHES}]")
 PROSE_SUFFIXES = (".md", ".mdx", ".markdown", ".txt", ".rst")
 
+# `git commit`, including the forms that put global options first, so
+# `git -C /repo commit` is not missed.
+GIT_COMMIT_RE = re.compile(
+    r"\bgit\b(?:\s+(?:-C\s+\S+|-c\s+\S+|--git-dir=\S+|--work-tree=\S+"
+    r"|-P|--no-pager|--no-replace-objects))*\s+commit\b"
+)
+
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
@@ -58,11 +65,18 @@ def strip_code(text: str) -> str:
                 fence = (char, length)
                 out.append("")
                 continue
-            if char == fence[0] and length >= fence[1]:
+            closes = (
+                char == fence[0]
+                and length >= fence[1]
+                and not line[match.end():].strip()
+            )
+            if closes:
                 fence = None
                 out.append("")
                 continue
-            # A shorter or different marker inside a block is content.
+            # A shorter or different marker inside a block is content, and so
+            # is one carrying an info string: only an opening fence may have
+            # text after the marker.
         out.append("" if fence else INLINE_CODE_RE.sub("", line))
     return "\n".join(out)
 
@@ -114,7 +128,13 @@ def main() -> None:
 
     if tool == "Bash":
         command = str(tool_input.get("command", ""))
-        if "git commit" in command and DASH_RE.search(command):
+        # The whole command is scanned, not just a -m value. A commit message
+        # also arrives through -F, through --file, and through a heredoc, which
+        # is how the long messages in this repo are written, so reading only -m
+        # would miss the common case. The cost is a false positive when some
+        # unrelated part of a compound command holds a dash. Rare, and the fix
+        # is to run the commit as its own command.
+        if GIT_COMMIT_RE.search(command) and DASH_RE.search(command):
             block(
                 "plain-language: this commit message contains an em or en dash. "
                 "Use a period or a comma, then run the command again."

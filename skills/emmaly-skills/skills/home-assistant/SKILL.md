@@ -74,7 +74,9 @@ ws://your-ha-host:8123/api/websocket
 
 ### Message IDs
 
-Every command the client sends after authentication requires an `id` field, a unique integer that increments across the session starting from 1. The rule covers commands the client sends, not everything on the socket: server responses and subscription events reuse the `id` of the command they answer, so a repeated `id` arriving from the server is correct and must not be rejected.
+Every command the client sends after authentication needs a unique integer `id`. Uniqueness is the whole requirement. Counting up from 1 is the usual client convention, not a rule, so do not build anything that depends on the server enforcing it.
+
+The requirement covers commands the client sends, not everything on the socket. Server responses and subscription events carry the `id` of the command they answer, which is how a client correlates them. A repeated `id` arriving from the server is correct and must not be rejected.
 
 ### Useful Commands
 

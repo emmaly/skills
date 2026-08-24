@@ -48,6 +48,14 @@ CASES = [
      {"tool_name": "Bash", "tool_input": {"command": f'{GC} -m "fix: thing"'}}),
     ("searching for a dash is not writing one", 0,
      {"tool_name": "Bash", "tool_input": {"command": f'grep -rn "{EM}" .'}}),
+    ("global options before the subcommand", 2,
+     {"tool_name": "Bash", "tool_input": {"command": f'{"git"} -C /repo commit -m "fix: a {EM} b"'}}),
+    ("global options, clean message", 0,
+     {"tool_name": "Bash", "tool_input": {"command": f'{"git"} -C /repo commit -m "fix: a. b"'}}),
+    ("heredoc body is scanned, not just -m", 2,
+     {"tool_name": "Bash", "tool_input": {"command": f'{GC} -F - <<EOF\nfix: thing\n\nbody {EM} here\nEOF'}}),
+    ("a different git subcommand is not a commit", 0,
+     {"tool_name": "Bash", "tool_input": {"command": f'{"git"} log --format=%B | grep "{EM}"'}}),
     ("malformed payload does not wedge the session", 0, "not json"),
     ("valid JSON of the wrong shape", 0, "5"),
     ("JSON array instead of an object", 0, "[1, 2]"),
@@ -68,6 +76,14 @@ CASES = [
     ("tilde fence is not closed by backticks", 0,
      {"tool_name": "Write", "tool_input": {"file_path": "a.md",
       "content": f"~~~\n```\nfoo {EM} bar\n~~~"}}),
+    # Only an opening fence may carry an info string, so a marker with trailing
+    # text does not close the block it sits in.
+    ("marker with an info string does not close a block", 0,
+     {"tool_name": "Write", "tool_input": {"file_path": "a.md",
+      "content": f"````\n```python\nfoo {EM} bar\n```\n````"}}),
+    ("opening fence may still carry an info string", 2,
+     {"tool_name": "Write", "tool_input": {"file_path": "a.md",
+      "content": f"```python\ncode\n```\nprose {EM} here"}}),
 ]
 
 
