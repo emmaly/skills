@@ -14,7 +14,7 @@ to keep.
 ## Length comes first
 
 A wall of text gets skimmed, so the facts the reader needed never land. Long and
-complete is worse than short and slightly incomplete.
+thorough is worse than short and blunt. Cut wording, never facts.
 
 - Answer in the first sentence. Everything else is optional.
 - Default chat reply: six lines or fewer. Write a document only when asked
