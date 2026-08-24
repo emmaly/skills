@@ -50,8 +50,9 @@ What the review changed:
   to `-F`, so there is no way to quote a dash into a commit message. `python3`
   is a new runtime dependency; the other hook is bash. Run
   `python3 skills/emmaly-skills/hooks/check-plain-language-test.py` before
-  changing it. 15 cases, and the false-positive ones matter more than the
-  catches.
+  changing it. The false-positive cases matter more than the catches: this hook
+  fires on every Write and every Bash call, so it is only worth having while it
+  stays quiet.
 
 **In progress:** watch whether replies actually get shorter. If they do not, the
 next lever is a harder cap in the length section, not more banned words. The

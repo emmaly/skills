@@ -40,11 +40,15 @@ DASHES = "—–"  # em, en
 DASH_RE = re.compile(f"[{DASHES}]")
 PROSE_SUFFIXES = (".md", ".mdx", ".markdown", ".txt", ".rst")
 
-# `git commit`, including the forms that put global options first, so
-# `git -C /repo commit` is not missed.
-GIT_COMMIT_RE = re.compile(
-    r"\bgit\b(?:\s+(?:-C\s+\S+|-c\s+\S+|--git-dir=\S+|--work-tree=\S+"
-    r"|-P|--no-pager|--no-replace-objects))*\s+commit\b"
+# Fallback for a command that cannot be tokenised. Any run of global options is
+# allowed between `git` and `commit` rather than a fixed list, since enumerating
+# them turned into whack-a-mole.
+GIT_COMMIT_RE = re.compile(r"\bgit\b(?:\s+-{1,2}[^\s]*(?:\s+[^\s-][^\s]*)?)*\s+commit\b")
+
+# Global options that take their value as a separate token, so the value is not
+# mistaken for the subcommand.
+GIT_OPTS_WITH_VALUE = frozenset(
+    {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"}
 )
 
 # -F path, --file path, --file=path. The message lives in the file, not in the
@@ -119,6 +123,39 @@ def written_text(tool_input: dict) -> str:
     return str(tool_input.get("new_string", ""))  # Edit
 
 
+def is_git_commit(command: str) -> bool:
+    """Whether the command runs `git commit`, past any global options.
+
+    Tokenised rather than pattern matched, so `git --namespace=x -C /repo
+    commit` is recognised without listing every option git accepts. A compound
+    command is scanned to the end, so the commit in `git status && git commit`
+    still counts.
+    """
+    try:
+        tokens = shlex.split(command, comments=False, posix=True)
+    except ValueError:
+        return bool(GIT_COMMIT_RE.search(command))
+
+    index = 0
+    while index < len(tokens):
+        if tokens[index].rsplit("/", 1)[-1] != "git":
+            index += 1
+            continue
+        cursor = index + 1
+        while cursor < len(tokens):
+            token = tokens[cursor]
+            if token in GIT_OPTS_WITH_VALUE:
+                cursor += 2
+            elif token.startswith("-"):
+                cursor += 1
+            else:
+                break
+        if cursor < len(tokens) and tokens[cursor] == "commit":
+            return True
+        index += 1
+    return False
+
+
 def message_files(command: str):
     """Paths given to -F, --file, --file=, or -Fpath, holding the message text.
 
@@ -185,7 +222,7 @@ def main() -> None:
 
     if tool == "Bash":
         command = str(tool_input.get("command", ""))
-        if not GIT_COMMIT_RE.search(command):
+        if not is_git_commit(command):
             return
         # The whole command is scanned, not just a -m value. A message also
         # arrives through a heredoc, which is how the long messages in this
