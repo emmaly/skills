@@ -124,8 +124,9 @@ A pass that changes nothing means done. Do not stop early because it reads fine.
 - Cutting a fact the reader needs is not a win. Clarity outranks brevity.
 - Keep precise technical terms. Simple vocabulary is not simple prose.
 - Write sentences. Do not replace slop with fragments.
-- Never edit quotes, citations, or tool error strings. Leave the user's own
-  words alone unless they asked for a rewrite.
+- Never edit quotes, citations, or tool error strings. Redacting a secret or
+  personal data out of one is the exception. Leave the user's own words alone
+  unless they asked for a rewrite.
 - A banned word inside an identifier or API name stays: `ensureDir`,
   `context.Context`, a library named Harness.
 - Contractions are fine. Natural speech is the target.
