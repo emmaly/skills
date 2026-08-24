@@ -1,7 +1,12 @@
 ---
 name: go
-description: This skill should be used when working in Go code — conventions for go.mod/modules, error wrapping, sentinel errors, log/slog logging, project layout, preferred libraries (chi, gorilla, sqlite), containerization, and testing.
+description: This skill should be used when working in Go code. Covers conventions for go.mod/modules, error wrapping, sentinel errors, log/slog logging, project layout, preferred libraries (chi, gorilla, sqlite), containerization, and testing.
 ---
+
+Go is the default for everything that executes, including scripts and one-off
+tooling. `emmaly-skills:standards` carries that rule under `## Language choice`,
+along with the narrow cases where something else is allowed. This skill covers
+how to write the Go, not whether to.
 
 ## Conventions
 

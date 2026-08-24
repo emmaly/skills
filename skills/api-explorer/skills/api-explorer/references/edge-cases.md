@@ -6,7 +6,7 @@
 
 **Very large APIs (AWS, GCP, Azure, etc.):** These are mega-APIs with hundreds of services. Never attempt to fetch the whole thing. Always require a specific service name as part of the scope (e.g., "AWS S3" not "AWS").
 
-**HTML-only APIs:** When no machine-readable spec exists, normalize from HTML. Flag the manifest with `"confidence": "low"` in the `api` section and include a note in the Phase 7 summary. Expect inaccuracies — recommend the user verify critical types and auth details.
+**HTML-only APIs:** When no machine-readable spec exists, normalize from HTML. Flag the manifest with `"confidence": "low"` in the `api` section and include a note in the Phase 7 summary. Expect inaccuracies, and recommend the user verify critical types and auth details.
 
 **Context window pressure:** Only load the scoped manifest into context, not the full manifest. If even the scoped manifest is very large, summarize the types section and keep the full endpoints list.
 

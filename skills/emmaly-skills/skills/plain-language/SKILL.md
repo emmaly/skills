@@ -11,6 +11,26 @@ Applies to every human-language output, in chat and inside code. Not to code
 itself, identifiers, quoted source material, or copy the user wrote and wants
 to keep.
 
+## If you follow nothing else
+
+1. Answer in the first sentence.
+2. Keep it short. Six lines or fewer in a chat reply.
+3. No em dashes.
+
+Everything below is those three rules plus the specific tells that break them.
+Under context pressure, keep these.
+
+## Precedence
+
+A required output shape wins over these rules. If the harness, a template, or
+the user asks for a narration line, a restatement, a status marker like
+`result:`, a PR body, an issue form, or a changelog entry, write it. Then apply
+every rule inside it. Trim the filler in a required section. Do not drop the
+section, and do not argue with the requirement.
+
+Order when they conflict: the user's explicit instruction, then the required
+shape, then this skill, then default style.
+
 ## Length comes first
 
 A wall of text gets skimmed, so the facts the reader needed never land. Long and
@@ -45,6 +65,14 @@ Do not write about the work as if it were a story.
   "exactly right".
 - No feelings about mechanisms. "Types that follow your schema" names a mood.
   "A renamed column fails the build" names a fact.
+
+Real severity is stated, not dressed up. Name the trigger and the consequence:
+"Running this drops the table", "This logs the token in plaintext", "Merging
+this deletes the Longhorn volume". That is a fact, and facts stay.
+
+The banned emphasis words are banned as substitutes for that fact, not as a
+rule against warning anyone. If a warning has to reach the reader before they
+act, it goes in the first sentence and the consequence goes in it.
 
 Test: if the sentence would fit unchanged in another project's writeup, it says
 nothing about this one. Cut it.
@@ -107,9 +135,26 @@ The list is representative. Anything with the same flavor is out.
   the ones that change meaning: only, almost, roughly.
 - Prefer the plain word. Use, not utilize. Many, not numerous.
 
+## Short-form text
+
+Chat rules do not fit a sixty-character string. These do.
+
+- Error message: what failed, then what the reader can do about it. Name the
+  input. "Cannot read config.yaml: no such file" beats "An error occurred
+  while loading configuration."
+- No apology, no blame, no exclamation mark. Not "Oops!", not "You entered an
+  invalid value."
+- Log line: one event, with the identifiers needed to find it again. Variable
+  data goes in fields, not in the sentence, so the message stays greppable.
+- Never put a secret, token, or personal data in an error or a log line.
+- UI copy: label the action in the reader's words. "Delete branch", not
+  "Proceed". Button text is a verb.
+- Comment or docstring: say why, or say what is not obvious from the code. Do
+  not restate the signature.
+
 ## The revision pass
 
-Run this before sending. Repeat until a pass changes nothing, up to three.
+Run this once before sending. It is a checklist, not a loop.
 
 1. Cut every sentence that carries no fact the reader will act on.
 2. Fix banned punctuation, shapes, and words.
@@ -117,7 +162,7 @@ Run this before sending. Repeat until a pass changes nothing, up to three.
 4. Break paragraphs over three sentences. Turn lists-in-prose into bullets.
 5. Cut it by a third. If that loses a fact, put the fact back, not the wording.
 
-A pass that changes nothing means done. Do not stop early because it reads fine.
+Step 5 is the one that gets skipped. Run it even when the draft reads fine.
 
 ## Do not overcorrect
 
@@ -127,7 +172,11 @@ A pass that changes nothing means done. Do not stop early because it reads fine.
 - Never edit quotes, citations, or tool error strings. Redacting a secret or
   personal data out of one is the exception. Leave the user's own words alone
   unless they asked for a rewrite.
-- A banned word inside an identifier or API name stays: `ensureDir`,
+- A banned word stays when it is the real term of art, not decoration: attack
+  vector, first-class function, robust to packet loss, the agent harness,
+  comprehensive test coverage, a load-bearing wall. Test: would a reader in
+  that field hear a substitution as a different claim? Then keep the word.
+- A banned word inside an identifier or API name stays too: `ensureDir`,
   `context.Context`, a library named Harness.
 - Contractions are fine. Natural speech is the target.
 - Answer the whole question. Brevity is no excuse for a half answer.

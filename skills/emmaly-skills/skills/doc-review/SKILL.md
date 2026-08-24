@@ -1,6 +1,6 @@
 ---
 name: doc-review
-description: This skill should be used when reviewing project documentation for quality, accuracy, completeness, or consistency — identifies actionable recommendations and presents each interactively.
+description: This skill should be used when reviewing project documentation for quality, accuracy, completeness, or consistency. Identifies actionable recommendations and presents each interactively.
 ---
 
 # Doc Review
@@ -11,13 +11,13 @@ Systematically review documentation, identify items needing attention, and inter
 
 Unless the user specifies particular files or directories:
 
-1. **Discover all documentation** in the project — `.md` files, `CLAUDE.md`, `README.md`, etc.
+1. **Discover all documentation** in the project: `.md` files, `CLAUDE.md`, `README.md`, etc.
 2. **Exclude**: `node_modules`, `.git`, `vendor`, `dist`, `build`, and other generated directories.
 3. If the user names specific files or a subset, review only those.
 
 ## Review Phase
 
-Read each doc and identify **concrete, actionable** items. Only flag things that actually need addressing — don't manufacture recommendations. Categories:
+Read each doc and identify **concrete, actionable** items. Only flag things that actually need addressing. Don't manufacture recommendations. Categories:
 
 - **Outdated or inaccurate** information (references to old APIs, removed features, wrong paths)
 - **Missing sections or gaps** (undocumented behavior, missing setup steps)
@@ -30,9 +30,9 @@ Read each doc and identify **concrete, actionable** items. Only flag things that
 
 For each recommendation, use `AskUserQuestion` to present it. Structure each question as:
 
-- **Option 1**: Your specific recommendation, marked `(Recommended)` — describe exactly what you'd change
-- **Option 2**: An alternative approach — a different reasonable way to address the same issue
-- **Option 3**: Skip — leave as-is
+- **Option 1**: Your specific recommendation, marked `(Recommended)`. Describe exactly what you'd change
+- **Option 2**: An alternative approach. A different reasonable way to address the same issue
+- **Option 3**: Skip and leave as-is
 - (Other is provided automatically by the tool)
 
 **Batching**: Group up to 4 related recommendations from the same file into a single `AskUserQuestion` call to reduce interruptions. Start a new call for each new file or when you've hit 4 questions.
@@ -41,10 +41,10 @@ For each recommendation, use `AskUserQuestion` to present it. Structure each que
 
 Example:
 ```
-Question: "README.md references `npm start` but the project uses `pnpm dev` — update the command?"
-Option 1: "Change to `pnpm dev` (Recommended)" — description of the fix
-Option 2: "Document both commands" — alternative approach
-Option 3: "Skip" — leave as-is
+Question: "README.md references `npm start` but the project uses `pnpm dev`. Update the command?"
+Option 1: "Change to `pnpm dev` (Recommended)", with a description of the fix
+Option 2: "Document both commands", an alternative approach
+Option 3: "Skip", which leaves the doc as-is
 ```
 
 ## Update Phase
