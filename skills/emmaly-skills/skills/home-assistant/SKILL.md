@@ -115,6 +115,7 @@ The requirement covers commands the client sends, not everything on the socket. 
 ## Go WebSocket Example
 
 ```bash
+go mod init github.com/emmaly/ha-example
 go get github.com/gorilla/websocket
 ```
 
@@ -167,6 +168,17 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("dial %s: %w", url, err)
 	}
 	defer conn.Close()
+
+	// gorilla reads and writes do not consult the context, so the dial timeout
+	// would be the only thing the context covered. Carry it onto the socket.
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := conn.SetReadDeadline(deadline); err != nil {
+			return fmt.Errorf("set read deadline: %w", err)
+		}
+		if err := conn.SetWriteDeadline(deadline); err != nil {
+			return fmt.Errorf("set write deadline: %w", err)
+		}
+	}
 
 	var required message
 	if err := conn.ReadJSON(&required); err != nil {

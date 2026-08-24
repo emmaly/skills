@@ -190,6 +190,12 @@ func TestMessageFiles(t *testing.T) {
 		// regex fallback exists for.
 		{"unparseable command still finds the message file", 2,
 			gc + " -F " + dirty + ` && echo "unclosed`},
+		{"unparseable command with a quoted path holding a space", 2,
+			gc + ` -F "` + spaced + `" && echo "unclosed`},
+		{"unparseable command with an attached path", 2,
+			gc + " -F" + dirty + ` && echo "unclosed`},
+		{"unparseable command, clean message file", 0,
+			gc + " -F " + clean + ` && echo "unclosed`},
 	}
 
 	for _, test := range cases {

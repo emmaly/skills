@@ -127,7 +127,7 @@ Find API documentation sources. Try these in order, stopping when you have a usa
 
 4. **GitHub/repo search.** Many APIs publish specs in public repos. Search for official SDK repos or API spec repos.
 
-5. **HTML doc sites.** If no machine-readable spec is found, fall back to the HTML documentation site. This is the least reliable path, so flag it.
+5. **HTML doc sites.** The least reliable path, and the last one to reach for. Work through the machine-readable sources in steps 6 through 10 first: an available HTML site is not a reason to stop looking for a spec. Fall back to scraping the documentation site only when none of them yields one, and flag it in the summary when that happens.
 
 6. **Postman collections.** Many APIs publish official Postman collections. Search for `"{api name}" postman collection` or check `www.postman.com/explore`. If found, curl the collection JSON directly to disk (`~/.cache/api-explorer/apis/{slug}/raw/{timestamp}/postman-collection.json`) then parse it locally. This is the first step that writes into a snapshot, so create the `{timestamp}` directory here using the `YYYYMMDDTHHMMZ` format Phase 4 uses, and let Phase 4 reuse it rather than making a second one. Postman collections contain endpoints, auth config, example requests/responses, and environment variables, which makes them rich source material.
 

@@ -26,6 +26,12 @@ give_up() {
     exit 0
 }
 
+# Everything below runs under `set -e`, so any command failing without an
+# explicit guard would exit non-zero and report a broken hook. Catch those too.
+# Exit 2 must only ever come from plaincheck finding a dash, never from this
+# wrapper falling over.
+trap 'give_up "unexpected error in the wrapper"' ERR
+
 if [[ ! -d "$SRC_DIR" ]]; then
     give_up "no source at ${SRC_DIR}"
 fi
@@ -53,4 +59,13 @@ if (( needs_build )); then
     mv -f "$tmp" "$BIN"
 fi
 
-exec "$BIN"
+# Not exec, so the exit code can be inspected before it escapes. Only 0 and 2
+# are ours to return: 2 means plaincheck found a dash, 0 means it did not.
+# Anything else came from a broken binary rather than from prose, and a broken
+# binary must not read as a finding.
+status=0
+"$BIN" || status=$?
+case "$status" in
+    0 | 2) exit "$status" ;;
+    *) give_up "checker exited ${status}, rebuild it with 'go build ./...' in ${SRC_DIR}" ;;
+esac

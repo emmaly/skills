@@ -60,8 +60,10 @@ var (
 	// since enumerating them turned into whack-a-mole.
 	gitCommitRe = regexp.MustCompile(`\bgit\b(?:\s+-{1,2}[^\s]*(?:\s+[^\s-][^\s]*)?)*\s+commit\b`)
 
-	// -F path, --file path, --file=path, for the same fallback.
-	messageFileRe = regexp.MustCompile(`(?:^|\s)(?:-F|--file)(?:=(\S+)|\s+(\S+))`)
+	// -F path, -Fpath, --file path, --file=path, for the same fallback. Quoted
+	// forms are matched whole, so a path with a space in it survives the one
+	// case that reaches this pattern: a command the tokeniser could not parse.
+	messageFileRe = regexp.MustCompile(`(?:^|\s)(?:--file(?:=|\s+)|-F\s*)("[^"]*"|'[^']*'|\S+)`)
 )
 
 // gitOptsWithValue are global options taking their value as a separate token,
@@ -264,7 +266,7 @@ func messageFiles(command string) []string {
 	if err != nil {
 		var paths []string
 		for _, m := range messageFileRe.FindAllStringSubmatch(command, -1) {
-			raw := strings.Trim(m[1]+m[2], `"'`)
+			raw := strings.Trim(m[1], `"'`)
 			if raw != "" && raw != "-" {
 				paths = append(paths, raw)
 			}
