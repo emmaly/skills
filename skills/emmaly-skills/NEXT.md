@@ -55,11 +55,24 @@ What the review changed:
 next lever is a harder cap in the length section, not more banned words. The
 banned lists are still a living list; add tells as they slip through.
 
-**Open question, deliberately not fixed:** 23 em dashes remain across 7 sibling
-`SKILL.md` files, all written before 2026-08-18. Those files load into context,
-and models copy in-context style, so they push the other way. Backfilling them
-is a mechanical edit that also churns files nobody is otherwise touching.
-Undecided.
+**Backfilled the same day.** The repo held 61 em and en dashes across 11 prose
+files, all written before 2026-08-18: 8 in skill frontmatter descriptions, 49 in
+prose bodies, 4 inside a fenced example. The count matters less than where they
+sat. Only the 8 descriptions loaded every session, in the skill listing, so they
+were the ones actually competing with the rule. Emmaly chose to convert all 61
+anyway, `api-explorer` included, on the grounds that it is the same repo under
+the same rules. The repo is now at zero, and the hook keeps it there.
+
+Two conventions came out of that pass, and they are worth keeping:
+
+- **A definition-list dash becomes a colon.** A bolded term at the start of a
+  list item is followed by `:`, never by a dash. The alternative was to carve
+  that pattern out of both the skill and the hook. Zero with no exceptions is
+  what makes the rule cheap to follow and cheap to check, and 13 lines was not
+  worth spending that on.
+- **A quoted literal goes in backticks.** `NEXT.md` quotes its own earlier
+  wording, `lines 25-875`. Backticks mark it as the literal string it is, and
+  they are also the hook's escape hatch, so quoting a dash stays possible.
 
 ## Where things stand
 
@@ -67,7 +80,7 @@ Undecided.
   session (startup, resume, clear, **compact**). `hooks.json` calls it twice, for
   `standards` and for `plain-language`. It was `emit-standards.sh` until
   2026-08-18, hardcoded to one skill; generalising it was cheaper than a second
-  near-identical script. It is the only *automatic* loader — the
+  near-identical script. It is the only *automatic* loader. The
   `<!-- emmaly:standards -->` block was removed from `~/.claude/CLAUDE.md` and the
   `apply-standards` skill that wrote it is deleted. `standards` is still an
   invokable skill, so invoking it explicitly does put the same body in context a
@@ -80,11 +93,11 @@ Undecided.
   skill only invoked when someone remembers it would never fire on the outputs
   that need it most. Cost of that choice: roughly 800 words of context per
   session on top of the standards. If context pressure ever forces a trim, cut
-  the word list before cutting the revision pass — the pass is what makes it
+  the word list before cutting the revision pass. The pass is what makes it
   iterate.
 - **A new machine needs this plugin and nothing else.** The `## Working style`
   bullets moved out of `~/.claude/CLAUDE.md` into `standards/SKILL.md` on
-  2026-08-09, and that file is now empty — install the marketplace, enable
+  2026-08-09, and that file is now empty. Install the marketplace, enable
   `emmaly-skills`, and every universal rule loads. The dotfiles repo is no longer
   required to get moving. The tradeoff: `CLAUDE.md` used to load unconditionally,
   whereas the hook only fires when the plugin is enabled. Put machine-specific
@@ -101,9 +114,9 @@ loads. The version string is the refresh trigger:
    `skills/emmaly-skills/.claude-plugin/plugin.json` (format `YYYYMMDDNNN`).
 2. `/plugin marketplace update emmaly`
 3. `/plugin update emmaly-skills@emmaly`
-4. Restart the session — SessionStart hooks are registered at launch.
+4. Restart the session. SessionStart hooks are registered at launch.
 
-Verify by asserting the *exact* new version directory exists — listing the parent
+Verify by asserting the *exact* new version directory exists. Listing the parent
 will happily show you the old one and look like success. Read the expected
 version out of the manifest rather than typing it, or this check goes stale on
 the next bump and starts passing against the previous release:
@@ -115,7 +128,7 @@ test -d ~/.claude/plugins/cache/emmaly/emmaly-skills/"$v" && echo "ok: $v"
 
 Both `.claude-plugin/marketplace.json` and `skills/emmaly-skills/.claude-plugin/plugin.json`
 declare a version, and this procedure bumps them together. Which one the resolver
-actually reads is unconfirmed — in the official marketplace the entry-level
+actually reads is unconfirmed. In the official marketplace the entry-level
 `version` is optional (14 of 284 entries set it). Keeping them in lockstep is
 correct either way; do not drop one without testing which field drives the
 refresh, because getting this wrong strands every session on a stale build with
@@ -129,7 +142,7 @@ debugging anything else. For iterating without a release, run
 
 ## To do
 
-- **Kubernetes deploy skill — designed 2026-08-09, deferred, un-deferred
+- **Kubernetes deploy skill: designed 2026-08-09, deferred, un-deferred
   2026-08-11.** The `deploy` skill (podman-compose over SSH to a single remote
   host) was removed rather than ported; on-prem now means the k3s cluster in
   `~/Projects/kube`, and that is now the *default* target for new work rather
@@ -138,25 +151,25 @@ debugging anything else. For iterating without a release, run
   Two things were settled in that conversation, so the next attempt does not
   restart from zero:
 
-  1. **The skill's job would be steady-state cluster conventions** — the rules
-     that decide whether a deployment is correct — not the podlap migration
-     procedure and not day-2 kubectl recipes.
+  1. **The skill's job would be steady-state cluster conventions.** That means
+     the rules that decide whether a deployment is correct, not the podlap
+     migration procedure and not day-2 kubectl recipes.
   2. **`docs/MIGRATING-A-PROJECT.md` already has the seam to cut along.**
      Everything from `## The rules that are not negotiable` through
-     `## Pod hygiene` is durable convention — what the cluster does and does not
+     `## Pod hygiene` is durable convention: what the cluster does and does not
      provide, required layout, storage, images, secrets, networking, pod hygiene.
      From `## The migration procedure` onward is podlap-specific and dies with
      the wipe. The first half is the skill; the second half is not.
 
      Cut along the **headings**, not line numbers. This note originally said
-     "lines 25–875" and the seam had moved to 905 within two days, because every
+     `lines 25-875` and the seam had moved to 905 within two days, because every
      migration patches the contract.
 
   **No longer deferred, as of 2026-08-11.** Kubernetes is now the default
   deployment target (`standards/SKILL.md` says so), so the skill should be
   written rather than waited on. What changed: `charmcrafterlite` and
   `charmy-webfetch` migrated together as one pod on 2026-08-09, and that round
-  produced **five** contract fixes, the smallest of any migration — the series
+  produced **five** contract fixes, the smallest of any migration. The series
   ran 10, 3, 8, 8, 9, 7, 11, 7, 9, 9, 12, 5. The conventions have converged.
 
   **Confirm two things first, because the ledger and the room disagree.**
@@ -166,14 +179,14 @@ debugging anything else. For iterating without a release, run
   places, including its row in the services table, and the newest commit there is
   the charmcrafterlite round. That ledger calls itself "the only thing that
   survives a fresh session", so if `unifi` did move, **the gap is in the ledger,
-  not here** — fix it there first. `unifi` also matters to the skill's content:
+  not here**. Fix it there first. `unifi` also matters to the skill's content:
   it is the one workload needing UDP that an HTTP Ingress cannot carry, so how it
   was solved belongs in the non-HTTP section.
 
   When picking this up, the open question is where the conventions should live:
   move them out of the kube contract into the skill (one source of truth, but a
   second PR against `~/Projects/kube`), or keep kube authoritative and inline only
-  the decisive rules. Do not simply duplicate them — that is the drift failure
+  the decisive rules. Do not simply duplicate them. That is the drift failure
   this plugin just spent a session removing.
 - `standards/SKILL.md` → "Deployment Targets" now names Kubernetes as the
   default and carries the shape (project-repo manifests, `ghcr.io/emmaly/*`

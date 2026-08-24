@@ -1,7 +1,7 @@
 {
   "name": "api-explorer",
   "description": "Discover, fetch, cache, and normalize third-party API documentation",
-  "version": "20260326002",
+  "version": "20260824001",
   "author": {
     "name": "Emmaly",
     "email": "emmaly@emma.ly"

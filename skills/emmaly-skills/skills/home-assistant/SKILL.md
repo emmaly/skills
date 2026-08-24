@@ -1,6 +1,6 @@
 ---
 name: home-assistant
-description: This skill should be used when interacting with Home Assistant — REST and WebSocket API access patterns, Bearer-token auth, and common commands for states, services, dashboards, logs, and HACS.
+description: This skill should be used when interacting with Home Assistant. Covers REST and WebSocket API access patterns, Bearer-token auth, and common commands for states, services, dashboards, logs, and HACS.
 ---
 
 ## Credentials
@@ -60,7 +60,7 @@ WebSocket gives full access to commands not available via REST (dashboards, logs
 
 ### Connection URL
 
-Derive from `HASS_API_URL` — replace `http` with `ws` (or `https` with `wss`) and append `/api/websocket`:
+Derive from `HASS_API_URL` by replacing `http` with `ws` (or `https` with `wss`) and append `/api/websocket`:
 
 ```
 ws://your-ha-host:8123/api/websocket
@@ -68,13 +68,13 @@ ws://your-ha-host:8123/api/websocket
 
 ### Auth Handshake
 
-1. Connect — server sends `{"type": "auth_required"}`
+1. Connect: server sends `{"type": "auth_required"}`
 2. Send: `{"type": "auth", "access_token": "<HASS_API_KEY>"}`
 3. Server responds `{"type": "auth_ok"}` on success
 
 ### Message IDs
 
-Every command message requires an `id` field — sequential integers starting from 1. Each message in a session must use a unique, incrementing ID.
+Every command message requires an `id` field, a sequential integer starting from 1. Each message in a session must use a unique, incrementing ID.
 
 ### Useful Commands
 

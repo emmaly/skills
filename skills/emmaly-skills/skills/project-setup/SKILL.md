@@ -1,6 +1,6 @@
 ---
 name: project-setup
-description: This skill should be used when starting a new project or setting up project scaffolding — covers the `.secrets/` convention, `.gitignore`, README/PRD/AGENTS.md/CLAUDE.md documentation structure, Dockerfile/containerization, and CI conventions.
+description: This skill should be used when starting a new project or setting up project scaffolding. Covers the `.secrets/` convention, `.gitignore`, README/PRD/AGENTS.md/CLAUDE.md documentation structure, Dockerfile/containerization, and CI conventions.
 ---
 
 ## Secrets

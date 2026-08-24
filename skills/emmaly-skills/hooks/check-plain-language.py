@@ -17,7 +17,10 @@ Two events, both registered in hooks.json:
                amend or a rebase.
 
 Escape hatch: text inside backticks or a fenced code block is skipped, so a
-document that quotes a dash to talk about one still passes.
+document that quotes a dash to talk about one still passes. Known limit: the
+scan is line-based, so an inline backtick span wrapped across two lines is not
+recognised as code and its dash is still flagged. Keep such a span on one line,
+or fence it.
 
 Depends on python3 only, no third-party modules. Exit 2 is the code that returns
 stderr to Claude; every other outcome exits 0 so a malformed payload can never

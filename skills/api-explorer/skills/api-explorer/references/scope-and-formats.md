@@ -31,7 +31,7 @@
 | gRPC / Protobuf | `.proto` file download, buf registry | High |
 | RAML | Web search, GitHub | High |
 | API Blueprint | Web search, GitHub | Medium |
-| HTML documentation | Web scraping of doc pages | Low — flag in summary |
-| Postman Collection v2.x | Postman search, web search, `{api}.postman.co` | Medium — covers endpoints and examples but may lack full type schemas |
+| HTML documentation | Web scraping of doc pages | Low, flag in summary |
+| Postman Collection v2.x | Postman search, web search, `{api}.postman.co` | Medium, covers endpoints and examples but may lack full type schemas |
 
 When multiple formats are available, prefer machine-readable specs over HTML. Prefer OpenAPI 3.x over Swagger 2.0.
