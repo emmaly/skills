@@ -44,9 +44,11 @@ What the review changed:
   fire on the ban list itself, on quoted tool output, and on every legitimate
   term of art, so those stay with the model. Two deliberate narrowings: it reads
   only the text being written, never the rest of the file, so editing an old
-  document does not block unrelated work, and it skips backticks and fenced
-  blocks, which is the escape hatch for quoting a dash. `python3` is a new
-  runtime dependency; the other hook is bash. Run
+  document does not block unrelated work, and in prose files it skips backticks
+  and fenced blocks, which is the escape hatch for quoting a dash. That hatch is
+  prose-only: the commit-message branch scans the raw command, and a file passed
+  to `-F`, so there is no way to quote a dash into a commit message. `python3`
+  is a new runtime dependency; the other hook is bash. Run
   `python3 skills/emmaly-skills/hooks/check-plain-language-test.py` before
   changing it. 15 cases, and the false-positive ones matter more than the
   catches.

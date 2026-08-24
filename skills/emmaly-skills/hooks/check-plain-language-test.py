@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 
 HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "check-plain-language.py")
 EM = "—"
@@ -77,27 +78,58 @@ CASES = [
      {"tool_name": "Write", "tool_input": {"file_path": "a.md",
       "content": f"~~~\n```\nfoo {EM} bar\n~~~"}}),
     # Only an opening fence may carry an info string, so a marker with trailing
-    # text does not close the block it sits in.
-    ("marker with an info string does not close a block", 0,
+    # text does not close the block it sits in. The inner marker matches the
+    # opening length, so the info string is the only thing keeping it open.
+    ("equal-length marker with an info string does not close a block", 0,
      {"tool_name": "Write", "tool_input": {"file_path": "a.md",
-      "content": f"````\n```python\nfoo {EM} bar\n```\n````"}}),
+      "content": f"````\n````python\nfoo {EM} bar\n````"}}),
     ("opening fence may still carry an info string", 2,
      {"tool_name": "Write", "tool_input": {"file_path": "a.md",
       "content": f"```python\ncode\n```\nprose {EM} here"}}),
 ]
 
 
+def file_cases(tmpdir):
+    """Cases needing a real message file on disk, for the -F path."""
+    dirty = os.path.join(tmpdir, "dirty.msg")
+    clean = os.path.join(tmpdir, "clean.msg")
+    with open(dirty, "w", encoding="utf-8") as handle:
+        handle.write(f"fix: thing\n\nbody {EM} here\n")
+    with open(clean, "w", encoding="utf-8") as handle:
+        handle.write("fix: thing\n\nbody here\n")
+    return [
+        ("message file holding a dash", 2,
+         {"tool_name": "Bash", "tool_input": {"command": f"{GC} -F {dirty}"}}),
+        ("clean message file", 0,
+         {"tool_name": "Bash", "tool_input": {"command": f"{GC} -F {clean}"}}),
+        ("--file= form", 2,
+         {"tool_name": "Bash", "tool_input": {"command": f"{GC} --file={dirty}"}}),
+        ("missing message file is not an error", 0,
+         {"tool_name": "Bash", "tool_input": {"command": f"{GC} -F {tmpdir}/nope.msg"}}),
+        ("-F - is the heredoc form, not a path", 0,
+         {"tool_name": "Bash", "tool_input": {"command": f"{GC} -F - <<EOF\nfix: thing\nEOF"}}),
+    ]
+
+
 def main() -> int:
     failed = 0
-    for name, want, payload in CASES:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cases = CASES + file_cases(tmpdir)
+        failed = run(cases)
+    return 1 if failed else 0
+
+
+def run(cases) -> int:
+    failed = 0
+    for name, want, payload in cases:
         data = payload if isinstance(payload, str) else json.dumps(payload)
         result = subprocess.run([sys.executable, HOOK], input=data, capture_output=True, text=True)
         ok = result.returncode == want
         failed += not ok
         print(f"{'PASS' if ok else 'FAIL'}  {name}: want {want}, got {result.returncode}")
-    total = len(CASES)
+    total = len(cases)
     print(f"\n{total - failed}/{total} passed")
-    return 1 if failed else 0
+    return failed
 
 
 if __name__ == "__main__":

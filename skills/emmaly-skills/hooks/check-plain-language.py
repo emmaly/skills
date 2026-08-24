@@ -16,11 +16,15 @@ Two events, both registered in hooks.json:
                which is the only cheap moment: rewording afterward means an
                amend or a rebase.
 
-Escape hatch: text inside backticks or a fenced code block is skipped, so a
-document that quotes a dash to talk about one still passes. Known limit: the
-scan is line-based, so an inline backtick span wrapped across two lines is not
-recognised as code and its dash is still flagged. Keep such a span on one line,
-or fence it.
+Escape hatch, prose files only: text inside backticks or a fenced code block is
+skipped, so a document that quotes a dash to talk about one still passes. The
+commit branch has no such hatch, since it scans the raw command and any file
+given to -F.
+
+Two known limits. The prose scan is line-based, so an inline backtick span
+wrapped across two lines is not recognised as code and its dash is still
+flagged; keep such a span on one line, or fence it. And a message built from a
+shell variable, or piped in from another process, cannot be resolved here.
 
 Depends on python3 only, no third-party modules. Exit 2 is the code that returns
 stderr to Claude; every other outcome exits 0 so a malformed payload can never
@@ -40,6 +44,12 @@ PROSE_SUFFIXES = (".md", ".mdx", ".markdown", ".txt", ".rst")
 GIT_COMMIT_RE = re.compile(
     r"\bgit\b(?:\s+(?:-C\s+\S+|-c\s+\S+|--git-dir=\S+|--work-tree=\S+"
     r"|-P|--no-pager|--no-replace-objects))*\s+commit\b"
+)
+
+# -F path, --file path, --file=path. The message lives in the file, not in the
+# command, so the file has to be read to see it.
+MESSAGE_FILE_RE = re.compile(
+    r"(?:^|\s)(?:-F|--file)(?:=(?P<eq>[^\s]+)|\s+(?P<sep>[^\s]+))"
 )
 
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
@@ -108,6 +118,29 @@ def written_text(tool_input: dict) -> str:
     return str(tool_input.get("new_string", ""))  # Edit
 
 
+def message_files(command: str):
+    """Paths given to -F, --file, or --file=, which hold the message text.
+
+    `-` means stdin, which is the heredoc case and is already in the command
+    text. Quotes are stripped because the path is read from a shell string.
+    """
+    paths = []
+    for match in MESSAGE_FILE_RE.finditer(command):
+        raw = (match.group("eq") or match.group("sep") or "").strip("\"'")
+        if raw and raw != "-":
+            paths.append(raw)
+    return paths
+
+
+def read_text(path: str) -> str:
+    """Contents of a message file, or an empty string if it cannot be read."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            return handle.read()
+    except OSError:
+        return ""
+
+
 def block(message: str):
     print(message, file=sys.stderr)
     sys.exit(2)
@@ -128,17 +161,28 @@ def main() -> None:
 
     if tool == "Bash":
         command = str(tool_input.get("command", ""))
-        # The whole command is scanned, not just a -m value. A commit message
-        # also arrives through -F, through --file, and through a heredoc, which
-        # is how the long messages in this repo are written, so reading only -m
-        # would miss the common case. The cost is a false positive when some
-        # unrelated part of a compound command holds a dash. Rare, and the fix
-        # is to run the commit as its own command.
-        if GIT_COMMIT_RE.search(command) and DASH_RE.search(command):
+        if not GIT_COMMIT_RE.search(command):
+            return
+        # The whole command is scanned, not just a -m value. A message also
+        # arrives through a heredoc, which is how the long messages in this
+        # repo are written, so reading only -m would miss the common path. The
+        # cost is a false positive when an unrelated part of a compound command
+        # holds a dash, and the fix there is to run the commit on its own.
+        if DASH_RE.search(command):
             block(
                 "plain-language: this commit message contains an em or en dash. "
                 "Use a period or a comma, then run the command again."
             )
+        # A message passed as a file is not in the command text at all, so read
+        # it. Known limit: a path built from a shell variable cannot be resolved
+        # here, and neither can a message piped in from another process.
+        for path in message_files(command):
+            if DASH_RE.search(read_text(path)):
+                block(
+                    f"plain-language: the commit message in {path} contains an "
+                    "em or en dash. Use a period or a comma, then run the "
+                    "command again."
+                )
         return
 
     if tool in ("Write", "Edit", "MultiEdit"):
