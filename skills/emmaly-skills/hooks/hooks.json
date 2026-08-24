@@ -24,7 +24,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/check-plain-language.py\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/run-plaincheck.sh\"",
+            "shell": "bash",
             "async": false
           }
         ]
@@ -36,7 +37,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/check-plain-language.py\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/run-plaincheck.sh\"",
+            "shell": "bash",
             "async": false
           }
         ]

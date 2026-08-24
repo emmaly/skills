@@ -37,7 +37,7 @@ What the review changed:
 7. **The revision pass is a checklist, not a loop.** "Repeat until a pass
    changes nothing, up to three" was unverifiable and cheap to claim.
 
-- **`hooks/check-plain-language.py` is the only mechanical gate.** PostToolUse on
+- **`hooks/plaincheck` is the only mechanical gate.** PostToolUse on
   Write/Edit/MultiEdit checks prose files, PreToolUse on Bash checks
   `git commit`. It looks for em and en dashes and nothing else, because that is
   the one rule with no false positives. Word-list and sentence-shape checks would
@@ -47,12 +47,21 @@ What the review changed:
   document does not block unrelated work, and in prose files it skips backticks
   and fenced blocks, which is the escape hatch for quoting a dash. That hatch is
   prose-only: the commit-message branch scans the raw command, and a file passed
-  to `-F`, so there is no way to quote a dash into a commit message. `python3`
-  is a new runtime dependency; the other hook is bash. Run
-  `python3 skills/emmaly-skills/hooks/check-plain-language-test.py` before
-  changing it. The false-positive cases matter more than the catches: this hook
-  fires on every Write and every Bash call, so it is only worth having while it
-  stays quiet.
+  to `-F`, so there is no way to quote a dash into a commit message. Run
+  `go test ./...` in `hooks/plaincheck` before changing it. The false-positive
+  cases matter more than the catches: this hook fires on every Write and every
+  Bash call, so it is only worth having while it stays quiet.
+- **`hooks/run-plaincheck.sh` builds the checker on first use** into
+  `${XDG_CACHE_HOME:-~/.cache}/emmaly-skills/plaincheck`, then execs it, and
+  rebuilds whenever a `.go` file is newer than the binary. Hooks need an
+  executable to call and a compiled binary cannot ship in the repo: it would be
+  platform-specific and would go stale against its own source. Measured after
+  the first build, 20 invocations took 94ms, so roughly 5ms per tool call.
+  Verified by hand, since it is the one piece the Go tests cannot reach: cold
+  build blocks correctly, a touched source file triggers a rebuild, and both an
+  absent Go toolchain and a broken build exit 0 with a note on stderr rather
+  than blocking the work. That last part matters. A gate that fails closed on a
+  missing compiler would be worse than no gate.
 
 **In progress:** watch whether replies actually get shorter. If they do not, the
 next lever is a harder cap in the length section, not more banned words. The
@@ -76,6 +85,23 @@ Two conventions came out of that pass, and they are worth keeping:
 - **A quoted literal goes in backticks.** `NEXT.md` quotes its own earlier
   wording, `lines 25-875`. Backticks mark it as the literal string it is, and
   they are also the hook's escape hatch, so quoting a dash stays possible.
+
+**Go only, as of 2026-08-24.** `standards/SKILL.md` gained a `## Language
+choice` section, and it is a rule rather than a stack preference. The old
+wording was a "Preferred Stack" bullet listing Go, which reads as a
+recommendation, so LLM output kept reaching for Python on anything framed as a
+script or a one-off. That is exactly how the plain-language hook got written in
+Python in the first place, in this very repo, hours before the rule landed.
+
+The repo now has no Python at all. The checker is Go with `go test` coverage,
+and the Home Assistant WebSocket example was rewritten in Go against
+`gorilla/websocket`, verified by extracting the block and building it. One
+Python mention survives on purpose: `api-explorer` lists Go, Python, and JS/TS
+as SDK languages worth reading for API documentation. Reading is not writing,
+and the rule says so.
+
+If a future session argues that a quick script is the exception, it is not. That
+argument is named in the rule.
 
 ## Where things stand
 

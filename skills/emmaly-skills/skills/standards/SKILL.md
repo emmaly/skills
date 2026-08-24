@@ -13,6 +13,34 @@ description: Emmaly's core collaboration style and preferred technology stack. N
 - **Security-conscious by default.** Threat-model lightly even on small projects: least standing access, segmentation, secrets out of the repo (`~/.secrets/*.env` pattern), audit-friendly logs. Design that way without being asked.
 - **Embedded / IoT is in scope.** Occasional ESP32 (esp. **ESP32-C6**) + **Thread/Matter**; **Home Assistant** is standing home infra (see `emmaly-skills:home-assistant`). ESPHome / Arduino-ESP32 toolchains.
 
+## Language choice
+
+**Go, unless I have said otherwise for this specific task.** This is a rule, not
+a preference, and it covers everything that executes: services, CLIs, hooks,
+generators, migrations, one-off scripts, throwaway analysis, and whatever you
+were about to write to check your own work.
+
+- **Never write Python.** Not for a script, not for a quick calculation, not
+  because it is a few lines shorter, not because the file is temporary and
+  nobody will see it. If Python looks like the obvious tool, that is the habit
+  this rule exists to override.
+- Reaching for Python is the specific failure to watch for. It arrives as "this
+  is just a small script", "it's only for testing", or "this is throwaway", and
+  those are the cases this rule is aimed at, not the exceptions to it.
+- **Shell is allowed only as thin glue**: launching a process, wiring an
+  environment, a few lines with no logic worth testing. Anything with branching,
+  parsing, or arithmetic is a Go program instead.
+- Other languages follow the platform, not preference: TypeScript in the
+  browser, and whatever the hardware demands on embedded.
+- **Anything else needs approval first.** State what you want to use, why Go
+  will not do the job, and wait for an answer. Do not start writing and ask
+  afterward.
+- Reading Python is fine. Third-party SDKs, upstream examples, and vendor
+  documentation are reference material, and quoting them is not writing Python.
+
+The bar for "an intensely good reason" is high, and being asked to do something
+quickly is not one. A slower Go answer beats a fast Python one every time.
+
 ## Preferred Stack
 
 - Go 1.26+ (run `go version` at the start of a new project)

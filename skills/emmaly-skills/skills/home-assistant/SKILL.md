@@ -112,40 +112,106 @@ The requirement covers commands the client sends, not everything on the socket. 
 {"id": 10, "type": "call_service", "domain": "light", "service": "turn_on", "service_data": {"entity_id": "light.living_room"}}
 ```
 
-## Python WebSocket Example
-
-Requires the `websockets` package. On modern Linux a bare `pip install` is blocked by PEP 668 (`externally-managed-environment`); install into a venv or with `uv`:
+## Go WebSocket Example
 
 ```bash
-uv pip install websockets
-# or: python -m venv .venv && .venv/bin/pip install websockets
+go get github.com/gorilla/websocket
 ```
 
-```python
-import asyncio
-import json
-import os
-import websockets
+```go
+package main
 
-async def ha_websocket():
-    api_url = os.environ["HASS_API_URL"]
-    api_key = os.environ["HASS_API_KEY"]
-    # Anchor the swap at the scheme so hosts containing "http" aren't mangled
-    ws_url = ("wss" + api_url[5:] if api_url.startswith("https") else "ws" + api_url[4:]) + "/api/websocket"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"os"
+	"strings"
+	"time"
 
-    async with websockets.connect(ws_url) as ws:
-        # Auth
-        await ws.recv()  # auth_required
-        await ws.send(json.dumps({"type": "auth", "access_token": api_key}))
-        auth_resp = json.loads(await ws.recv())
-        assert auth_resp["type"] == "auth_ok"
+	"github.com/gorilla/websocket"
+)
 
-        # Send a command
-        await ws.send(json.dumps({"id": 1, "type": "get_states"}))
-        result = json.loads(await ws.recv())
-        print(json.dumps(result, indent=2))
+// message covers the handful of fields this exchange needs. Result stays raw
+// because its shape depends on the command.
+type message struct {
+	ID          int             `json:"id,omitempty"`
+	Type        string          `json:"type"`
+	AccessToken string          `json:"access_token,omitempty"`
+	Result      json.RawMessage `json:"result,omitempty"`
+}
 
-asyncio.run(ha_websocket())
+// websocketURL swaps the scheme and appends the socket path. Anchoring at the
+// scheme leaves a host that happens to contain "http" intact.
+func websocketURL(apiURL string) (string, error) {
+	switch {
+	case strings.HasPrefix(apiURL, "https://"):
+		return "wss://" + strings.TrimPrefix(apiURL, "https://") + "/api/websocket", nil
+	case strings.HasPrefix(apiURL, "http://"):
+		return "ws://" + strings.TrimPrefix(apiURL, "http://") + "/api/websocket", nil
+	default:
+		return "", fmt.Errorf("no http scheme in %q", apiURL)
+	}
+}
+
+// run authenticates, asks for entity states, and prints the result.
+func run(ctx context.Context) error {
+	url, err := websocketURL(os.Getenv("HASS_API_URL"))
+	if err != nil {
+		return err
+	}
+
+	conn, _, err := websocket.DefaultDialer.DialContext(ctx, url, nil)
+	if err != nil {
+		return fmt.Errorf("dial %s: %w", url, err)
+	}
+	defer conn.Close()
+
+	var required message
+	if err := conn.ReadJSON(&required); err != nil {
+		return fmt.Errorf("read auth_required: %w", err)
+	}
+
+	auth := message{Type: "auth", AccessToken: os.Getenv("HASS_API_KEY")}
+	if err := conn.WriteJSON(auth); err != nil {
+		return fmt.Errorf("send auth: %w", err)
+	}
+
+	var result message
+	if err := conn.ReadJSON(&result); err != nil {
+		return fmt.Errorf("read auth result: %w", err)
+	}
+	if result.Type != "auth_ok" {
+		return fmt.Errorf("authentication rejected: %s", result.Type)
+	}
+
+	if err := conn.WriteJSON(message{ID: 1, Type: "get_states"}); err != nil {
+		return fmt.Errorf("send get_states: %w", err)
+	}
+
+	var states message
+	if err := conn.ReadJSON(&states); err != nil {
+		return fmt.Errorf("read states: %w", err)
+	}
+
+	pretty, err := json.MarshalIndent(states.Result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("format states: %w", err)
+	}
+	fmt.Println(string(pretty))
+	return nil
+}
+
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := run(ctx); err != nil {
+		slog.Error("home assistant websocket", "err", err)
+		os.Exit(1)
+	}
+}
 ```
 
 ## Tips
