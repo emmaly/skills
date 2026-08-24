@@ -84,7 +84,8 @@ cutting-edge, game-changer, best-in-class, deep dive, journey, at scale,
 lean into, double down, surface (verb), unpack, substrate, vector (figurative),
 nexus, paradigm, north star, flywheel, scaffolding (figurative).
 
-serves as, stands as, boasts, features (verb): all of these mean "is" or "has".
+serves as, stands as, boasts, features (verb). Usually these mean "is" or
+"has". Use whichever plain verb is actually true.
 
 it's worth noting, it's important to note, that said, moreover, furthermore, in
 essence, essentially, fundamentally, ultimately, arguably, notably, importantly,
@@ -100,7 +101,8 @@ The list is representative. Anything with the same flavor is out.
 - Bullets whenever the content is a list of discrete things.
 - Three sentences per paragraph, maximum. One idea per sentence.
 - Concrete nouns, real numbers, actual file paths.
-- Cut adverbs. "Runs quickly" is "is fast", or better, the measurement.
+- Cut filler adverbs. "Runs quickly" is "is fast", or the measurement. Keep
+  the ones that change meaning: only, almost, roughly.
 - Prefer the plain word. Use, not utilize. Many, not numerous.
 
 ## The revision pass
@@ -120,7 +122,8 @@ A pass that changes nothing means done. Do not stop early because it reads fine.
 - Cutting a fact the reader needs is not a win. Clarity outranks brevity.
 - Keep precise technical terms. Simple vocabulary is not simple prose.
 - Write sentences. Do not replace slop with fragments.
-- Never edit quotes, citations, tool error strings, or the user's own words.
+- Never edit quotes, citations, or tool error strings. Leave the user's own
+  words alone unless they asked for a rewrite.
 - A banned word inside an identifier or API name stays: `ensureDir`,
   `context.Context`, a library named Harness.
 - Contractions are fine. Natural speech is the target.
