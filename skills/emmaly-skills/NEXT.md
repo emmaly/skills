@@ -122,8 +122,9 @@ argument is named in the rule.
   skill only invoked when someone remembers it would never fire on the outputs
   that need it most. Cost of that choice: roughly 800 words of context per
   session on top of the standards. If context pressure ever forces a trim, cut
-  the word list before cutting the revision pass. The pass is what makes it
-  iterate.
+  the word list before cutting the revision pass. The pass is the checklist that
+  catches what the word list cannot name, and step 5, cut it by a third, is
+  where most of the length actually comes off.
 - **A new machine needs this plugin and nothing else.** The `## Working style`
   bullets moved out of `~/.claude/CLAUDE.md` into `standards/SKILL.md` on
   2026-08-09, and that file is now empty. Install the marketplace, enable

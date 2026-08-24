@@ -21,7 +21,7 @@
     {
       "name": "api-explorer",
       "description": "Discover, fetch, cache, and normalize third-party API documentation",
-      "version": "20260824001",
+      "version": "20260824002",
       "source": "./skills/api-explorer",
       "author": {
         "name": "Emmaly",

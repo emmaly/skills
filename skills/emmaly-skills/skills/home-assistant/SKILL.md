@@ -62,7 +62,7 @@ WebSocket gives full access to commands not available via REST (dashboards, logs
 
 Derive from `HASS_API_URL` by replacing `http` with `ws` (or `https` with `wss`) and append `/api/websocket`:
 
-```
+```text
 ws://your-ha-host:8123/api/websocket
 ```
 

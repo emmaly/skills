@@ -129,7 +129,7 @@ Find API documentation sources. Try these in order, stopping when you have a usa
 
 5. **HTML doc sites.** If no machine-readable spec is found, fall back to the HTML documentation site. This is the least reliable path, so flag it.
 
-6. **Postman collections.** Many APIs publish official Postman collections. Search for `"{api name}" postman collection` or check `www.postman.com/explore`. If found, curl the collection JSON directly to disk (`~/.cache/api-explorer/apis/{slug}/raw/{timestamp}/postman-collection.json`) then parse it locally. Postman collections contain endpoints, auth config, example requests/responses, and environment variables, which makes them rich source material.
+6. **Postman collections.** Many APIs publish official Postman collections. Search for `"{api name}" postman collection` or check `www.postman.com/explore`. If found, curl the collection JSON directly to disk (`~/.cache/api-explorer/apis/{slug}/raw/{timestamp}/postman-collection.json`) then parse it locally. This is the first step that writes into a snapshot, so create the `{timestamp}` directory here using the `YYYYMMDDTHHMMZ` format Phase 4 uses, and let Phase 4 reuse it rather than making a second one. Postman collections contain endpoints, auth config, example requests/responses, and environment variables, which makes them rich source material.
 
 7. **Community-maintained spec registries.** Check [APIs.guru](https://apis.guru/) and their [GitHub repo](https://github.com/APIs-guru/openapi-directory) which aggregates thousands of OpenAPI specs. Also check [SwaggerHub](https://app.swaggerhub.com/search).
 
@@ -147,8 +147,8 @@ Record all discovered sources and their format type.
 
 ### Phase 4: Fetch and Store Raw
 
-1. Generate a timestamp: `YYYYMMDDTHHMMZ` (UTC)
-2. Create `apis/{slug}/raw/{timestamp}/`
+1. Generate a timestamp: `YYYYMMDDTHHMMZ` (UTC). If Phase 3 already created a snapshot directory for this run, reuse that timestamp instead of generating a second one.
+2. Create `apis/{slug}/raw/{timestamp}/` if it does not already exist
 3. Fetch each discovered source:
 
 | Format | Action |
@@ -233,7 +233,7 @@ If the user requested a subset of the API (which is the common case):
    - For each matched endpoint, include all endpoints in its `dependsOn` chain
    - For each newly included endpoint, repeat the type and dependency walk
 3. **Always include:** auth section, conventions section, API metadata
-4. **Boundary check:** if the scope pulls in more than 50% of the total endpoints, flag this to the user: "The {scope} scope pulls in {N} of {total} endpoints due to shared dependencies. Proceed with this scope, or use the full API?"
+4. **Boundary check:** if the scope pulls in more than 50% of the total endpoints, flag this to the user: "The {scope} scope pulls in {N} of {total} endpoints due to shared dependencies. Proceed with this scope, or use the full API?" For very large APIs (AWS, GCP, Azure), do not offer the full API here. Ask for a narrower scope instead, because the Phase 1 rule against fetching the entire API still applies at this point.
 5. Save the filtered manifest as `apis/{slug}/scopes/{scope-slug}.json`
 
 See `references/scope-and-formats.md` for the full include/exclude rules.
