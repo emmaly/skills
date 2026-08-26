@@ -3,10 +3,15 @@
 Status as of 2026-08-25: `integration` rewritten to keep CodeRabbit under its
 5 reviews/hour limit. The mandatory pre-push gate is now Claude's built-in
 `code-review` skill at high effort (local, no hourly cap); CodeRabbit reviews
-only the PR, once, as the merge gate. PRs open as drafts while iterating, since
-CodeRabbit does not auto-review drafts by default, so one PR costs one review
-regardless of push count. No `coderabbit` CLI runs and no CodeRabbit-plugin
-skills or agents in-session. Released as `20260825001`.
+only the PR, as the merge gate. PRs open as drafts while iterating; CodeRabbit
+skips drafts unless `.coderabbit.yaml` overrides that, so a PR costs one review
+per ready-for-review round rather than per push. No `coderabbit` CLI runs and
+no CodeRabbit-plugin skills or agents in-session. Released as `20260825001`.
+
+**Open follow-up:** the in-session CodeRabbit ban is prose in a skill that only
+loads at push time. Harder enforcement would be a PreToolUse hook blocking the
+`coderabbit` CLI, plus checking whether the coderabbit plugin's autonomous
+review skill can be disabled. Tracked as a GitHub issue on this repo.
 
 Status as of 2026-08-24: `plain-language` rewritten after real use. Emmaly's
 complaint was verbosity first, AI-isms second, so the skill now leads with a
