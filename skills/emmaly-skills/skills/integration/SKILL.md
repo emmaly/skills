@@ -5,23 +5,22 @@ description: This skill should be used when pushing code, opening a PR, or mergi
 
 Once implementation is complete and local verification passes (`go vet`, `gofmt`, tests, frontend build), proceed directly through this workflow without waiting for further instruction:
 
-**CRITICAL: Never mark a PR ready for review, and never push to a non-draft PR, without a clean local review first.** The local review is Claude's built-in `code-review` skill, not CodeRabbit. CodeRabbit reviews only the PR, as a final third-party gate before merging. Its 5 reviews/hour limit is shared by PR reviews, `coderabbit review` CLI runs, and manual `@coderabbitai review` triggers, so only the PR gate may spend it: no CodeRabbit CLI runs and no CodeRabbit-plugin review skills or agents during a session. Any in-session review request goes to the built-in `code-review` skill.
+**CRITICAL: The local review gate is the ready-for-review transition.** Never mark a PR ready for review, and never push to a non-draft PR, without a clean local review of the branch first. Pushes to a draft PR are not gated; a draft is working state. The local review is Claude's built-in `code-review` skill, not CodeRabbit. CodeRabbit reviews only the ready PR, as a final third-party gate before merging. Its 5 reviews/hour limit is shared by PR reviews, `coderabbit review` CLI runs, and manual `@coderabbitai review` triggers, so only the PR gate may spend it: no CodeRabbit CLI runs and no CodeRabbit-plugin review skills or agents during a session. Any in-session review request goes to the built-in `code-review` skill.
 
-1. **Local review** (MANDATORY before any non-draft push or ready-for-review): Commit the change, including any new files (a staged-but-uncommitted file does not appear in the branch diff and would reach GitHub unreviewed), then invoke the built-in `code-review` skill at high effort against the branch's diff from main
-2. **Address findings**: Fix actionable issues; file GitHub issues for deferred items
-3. **Re-review if changed**: If step 2 produced commits, go back to step 1. The gate is clean when the review reports no findings other than items already deferred to GitHub issues
-4. **Push and open PR**: If more pushes are likely (iterating on CI, expecting follow-ups), open the PR as a **draft**. CodeRabbit skips drafts unless the repo's `.coderabbit.yaml` sets `reviews.auto_review.drafts: true`, so check for that override once per repo; with drafts skipped, the PR costs one review per ready-for-review round, not per push. Draft pushes whose only purpose is to run CI (workflow debugging) may skip the local review; everything else follows step 1 first
-5. **Mark ready and wait**: Once the branch is final and the local review is clean, mark the PR ready for review (or push the non-draft PR). Wait 5 minutes, then check the PR's commit status; once checks pass, fetch and read all CodeRabbit review comments
-6. **If the PR review is clean**: Merge the PR and delete the remote and local feature branch; do not wait for confirmation
-7. **If the PR review has findings**: Convert the PR back to draft, fix locally, and go back to step 1. Each round of ready-for-review costs one more CodeRabbit review, so batch the fixes into one round
+1. **Commit everything first**: The review must see the exact tree that will be pushed, so commit the change, including any new files. Before committing new files, run `git ls-files --others --exclude-standard` and read the list; scratch files and anything secret that is not gitignored must not be committed
+2. **Local review**: Invoke the built-in `code-review` skill at high effort against the branch's diff from main
+3. **Address findings**: Fix actionable issues; file GitHub issues for deferred items
+4. **Re-review if changed**: If step 3 produced commits, review again before proceeding. When the fix is small, this round may target just the changes since the last review, at lower effort; a large rework repeats the full review. The gate is clean when the review reports no findings other than items already deferred to GitHub issues
+5. **Push and open PR**: If more pushes are likely (iterating on CI, expecting follow-ups), open the PR as a **draft** and iterate there. Otherwise, with the gate clean, push and open it ready for review. CodeRabbit skips drafts unless the repo's `.coderabbit.yaml` sets `reviews.auto_review.drafts: true`; check for that override once per repo
+6. **Mark ready and wait**: Once the branch is final and the gate is clean, mark the draft ready for review. Wait 5 minutes, then check the PR's commit status; once checks pass, fetch and read all CodeRabbit review comments
+7. **If the PR review is clean**: Merge the PR and delete the remote and local feature branch; do not wait for confirmation
+8. **If the PR review has findings**: Convert the PR back to draft, fix locally, and go back to step 1. Batch the fixes into one ready-for-review round
 
-Skip the local review ONLY if explicitly requested.
+Skip the local review gate, or merge without the CodeRabbit PR review, ONLY if explicitly requested.
 
 ## Budgeting the CodeRabbit limit
 
-- Local iteration is free: the pre-push gate is Claude, with no hourly cap
-- A PR costs one CodeRabbit review per ready-for-review round when the draft flow above is followed; a PR whose review finds issues costs one more per fix round
-- If the limit is hit anyway, keep working in drafts and wait for the reset; do not merge without a CodeRabbit PR review
+Each ready-for-review round costs one CodeRabbit review; local iteration and draft pushes cost none. If the limit is hit, keep working in drafts until it resets.
 
 ## CodeRabbit tips (PR gate only)
 

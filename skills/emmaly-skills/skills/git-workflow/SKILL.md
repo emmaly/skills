@@ -3,7 +3,7 @@ name: git-workflow
 description: This skill should be used when committing, branching, opening PRs, or filing GitHub issues. Covers branch naming, conventional commits, PR descriptions, and issue workflow.
 ---
 
-This skill covers naming and message conventions only. The push/PR/merge process itself lives in `emmaly-skills:integration`, which gates every push behind a mandatory local review. **Invoke it before pushing**, not this skill alone.
+This skill covers naming and message conventions only. The push/PR/merge process itself lives in `emmaly-skills:integration`, which gates every PR behind a mandatory local review before it may be marked ready. **Invoke it before pushing**, not this skill alone.
 
 ## Branching
 

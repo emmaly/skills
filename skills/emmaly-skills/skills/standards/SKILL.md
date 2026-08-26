@@ -79,4 +79,4 @@ The `emmaly-skills` plugin provides skills for Go, Svelte, git workflow, integra
 
 `emmaly-skills:plain-language` governs all human-language output, always. Like these standards, it is normally already in context because the SessionStart hook emits it, so it rarely needs invoking. Invoke it explicitly if it is not in context (the hook did not run, or failed to emit it).
 
-Before pushing anything to GitHub, invoke `emmaly-skills:integration`. It carries a mandatory local review gate that must run before every push.
+Before pushing anything to GitHub, invoke `emmaly-skills:integration`. It carries a mandatory local review gate and routes all in-session reviews to Claude's built-in `code-review` skill; CodeRabbit is reserved for the PR merge gate.

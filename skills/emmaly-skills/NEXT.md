@@ -1,8 +1,9 @@
 # Next: emmaly-skills
 
 Status as of 2026-08-25: `integration` rewritten to keep CodeRabbit under its
-5 reviews/hour limit. The mandatory pre-push gate is now Claude's built-in
-`code-review` skill at high effort (local, no hourly cap); CodeRabbit reviews
+5 reviews/hour limit. The mandatory gate, now at the ready-for-review
+transition, is Claude's built-in `code-review` skill at high effort
+(local, no hourly cap); CodeRabbit reviews
 only the PR, as the merge gate. PRs open as drafts while iterating; CodeRabbit
 skips drafts unless `.coderabbit.yaml` overrides that, so a PR costs one review
 per ready-for-review round rather than per push. No `coderabbit` CLI runs and
