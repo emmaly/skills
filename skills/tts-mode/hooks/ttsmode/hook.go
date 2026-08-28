@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,9 +23,11 @@ Speak your work aloud by running this command. Both the opening line and the
 closing delimiter must start at column zero, with no indentation, or the shell
 reads to end of input and swallows whatever you run next:
 
+~~~
 %s <<'%s'
 <text>
 %s
+~~~
 
 The quoted delimiter keeps the shell from reading your line as source, so it
 is safe to include a filename, an error string, or anything else you were just
@@ -73,26 +73,22 @@ func runHook(stdin io.Reader, stdout io.Writer, store Store, env func(string) st
 	if session == "" || !store.Enabled(session) {
 		return 0
 	}
-	delimiter := heredocDelimiter()
-	fmt.Fprintf(stdout, instructionTemplate, shellQuote(wrapperPath), delimiter, delimiter)
+	fmt.Fprintf(stdout, instructionTemplate, shellQuote(wrapperPath), heredocDelimiter, heredocDelimiter)
 	return 0
 }
 
-// heredocDelimiter returns a token unlikely to appear in a spoken line.
+// heredocDelimiter closes the heredoc. It only has to be a token that will not
+// appear as a whole line of spoken prose.
 //
-// A fixed delimiter is a word the model was just shown, and a summary that is
-// exactly that word would close the heredoc early and hand the rest to the
-// shell as commands. Fifteen words of prose makes that unlikely, not
-// impossible, and drawing it fresh each turn makes it unguessable.
-//
-// A rand failure leaves the buffer zeroed and yields a constant delimiter,
-// which is no worse than the fixed one it replaced, so there is nothing to
-// report and no reason to fail the hook.
-func heredocDelimiter() string {
-	var buf [6]byte
-	_, _ = rand.Read(buf[:])
-	return "TTS_LINE_" + hex.EncodeToString(buf[:])
-}
+// Drawing it fresh each turn was tried and reverted. There is nothing to
+// guess: the delimiter is printed in the same instruction the model reads, and
+// the model is the only party that authors the spoken line, so randomness buys
+// nothing against a line written to match it. What it cost was reliability,
+// since the model then had to reproduce twelve random hex characters exactly,
+// twice, with earlier turns' tokens still in the transcript. One mis-copied
+// character reproduces the indented-terminator bug: the heredoc runs to end of
+// input and silently swallows whatever runs next.
+const heredocDelimiter = "TTS_LINE_9f3c1a"
 
 // shellQuote wraps a path so the shell reads it as one argument.
 //

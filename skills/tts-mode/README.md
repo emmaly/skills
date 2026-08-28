@@ -73,9 +73,10 @@ variable expansion. The summary is written by a model that has just been
 reading files and tool output, so a line quoting a filename or an error string
 would have run as shell source. A quoted heredoc is not expanded at all.
 
-The delimiter is drawn fresh each turn, so a spoken line cannot be written to
-match it and close the heredoc early. Both the command and the delimiter are
-emitted at column zero, because bash requires the terminator unindented.
+The delimiter is a fixed uncommon token, and both the command and the closing
+delimiter are emitted at column zero, because bash requires the terminator
+unindented. An indented one runs to end of input and swallows whatever the
+agent runs next.
 
 Arguments still work when calling `tts-say.sh` by hand.
 

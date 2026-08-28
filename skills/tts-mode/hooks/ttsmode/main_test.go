@@ -493,9 +493,17 @@ func TestKeyInEnvironmentSurvivesAnUnusableEnvFile(t *testing.T) {
 		var out bytes.Buffer
 		run([]string{"say", "hello"}, strings.NewReader(""), &out, &out, envWith(vars))
 
-		body, _ := os.ReadFile(filepath.Join(dir, "log"))
-		if strings.Contains(string(body), "no api key") {
-			t.Fatalf("%s: gave up on the key despite one in the environment:\n%s", name, body)
+		body, err := os.ReadFile(filepath.Join(dir, "log"))
+		if err != nil {
+			t.Fatalf("%s: read log: %v", name, err)
+		}
+		// A positive signal, not the absence of one. Asserting only that "no
+		// api key" is missing passed under the bug too, because the bug
+		// returned before that line was ever reached. TTSMODE_API_BASE points
+		// at a dead port, so getting as far as the request proves the key from
+		// the environment was used.
+		if !strings.Contains(string(body), "synthesis failed") {
+			t.Fatalf("%s: never reached the request, so the environment key was not used:\n%s", name, body)
 		}
 	}
 }
