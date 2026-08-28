@@ -356,3 +356,65 @@ func TestLogRecordLongerThanCap(t *testing.T) {
 		t.Fatal("truncation cut a rune in half")
 	}
 }
+
+// Falling back to "." put state and the log under whatever directory the hook
+// ran in: the same predictable-path exposure as a fixed /tmp path, since
+// MkdirAll succeeds on a tree someone else pre-created and the log append
+// follows symlinks.
+func TestNoHomeWritesNothingRelative(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	env := envWith(map[string]string{"CLAUDE_CODE_SESSION_ID": "abc"})
+
+	for _, command := range []string{"on", "hook", "status", "prune", "log"} {
+		var out bytes.Buffer
+		run([]string{command, "text"}, strings.NewReader(""), &out, &out, env)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".claude")); !os.IsNotExist(err) {
+		t.Fatalf("wrote state relative to the working directory: %v", err)
+	}
+}
+
+// A person typed it, so silence would read as success while TTS stayed off.
+func TestNoHomeFailsLoudlyForUserFacing(t *testing.T) {
+	t.Chdir(t.TempDir())
+	env := envWith(map[string]string{})
+
+	var out bytes.Buffer
+	if code := run([]string{"on"}, strings.NewReader(""), &out, &out, env); code != 1 {
+		t.Fatalf("exit code %d, want 1", code)
+	}
+	if !strings.Contains(out.String(), "TTSMODE_STATE_DIR") {
+		t.Fatalf("message does not say what to set:\n%s", out.String())
+	}
+}
+
+// A hook must never fail the turn it was only meant to observe.
+func TestNoHomeIsSilentForHooks(t *testing.T) {
+	t.Chdir(t.TempDir())
+	env := envWith(map[string]string{})
+
+	var out bytes.Buffer
+	if code := run([]string{"hook"}, strings.NewReader(`{"session_id":"abc"}`), &out, &out, env); code != 0 {
+		t.Fatalf("exit code %d, want 0", code)
+	}
+	if out.String() != "" {
+		t.Fatalf("hook produced output: %q", out.String())
+	}
+}
+
+// TTSMODE_STATE_DIR alone is enough for the binary; the wrapper is what also
+// needs a cache directory.
+func TestStateDirOverrideWorksWithoutHome(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{"TTSMODE_STATE_DIR": dir, "CLAUDE_CODE_SESSION_ID": "abc"})
+
+	var out bytes.Buffer
+	if code := run([]string{"on"}, strings.NewReader(""), &out, &out, env); code != 0 {
+		t.Fatalf("exit code %d, want 0: %s", code, out.String())
+	}
+	if !(Store{Dir: dir}).Enabled("abc") {
+		t.Fatal("state was not written to the override directory")
+	}
+}

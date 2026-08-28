@@ -22,6 +22,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -49,7 +50,35 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	if session == "" {
 		session = env("CLAUDE_CODE_SESSION_ID")
 	}
-	store := Store{Dir: stateDir(env)}
+	// Usage errors are decided before anything touches the filesystem. They
+	// do not depend on a state directory, and reporting "no HOME" for a
+	// misspelled subcommand would send the reader after the wrong problem.
+	switch command {
+	case "hook", "on", "off", "status", "say", "log", "prune":
+	default:
+		fmt.Fprintf(stderr, "ttsmode: unknown subcommand %q\n", command)
+		return 2
+	}
+	if command == "say" && len(rest) == 0 {
+		fmt.Fprintln(stderr, `usage: ttsmode say "<text>"`)
+		return 2
+	}
+
+	dir, err := stateDir(env)
+	if err != nil {
+		// Same split as the shell wrappers. on/off/status are typed by a
+		// person, so silence would read as success while TTS stayed off.
+		// Everything else runs unattended and must not fail the turn, and
+		// there is nowhere to log because the log lives in the directory we
+		// just failed to resolve.
+		switch command {
+		case "on", "off", "status":
+			fmt.Fprintf(stderr, "ttsmode: %v; set HOME or TTSMODE_STATE_DIR\n", err)
+			return 1
+		}
+		return 0
+	}
+	store := Store{Dir: dir}
 	logf := logger(store)
 
 	switch command {
@@ -81,10 +110,6 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		return 0
 
 	case "say":
-		if len(rest) == 0 {
-			fmt.Fprintln(stderr, `usage: ttsmode say "<text>"`)
-			return 2
-		}
 		// Speech is gated on the live state, not only on the instruction that
 		// asked for it. The instruction is re-injected every turn, so after an
 		// "off" many stale copies remain in the transcript and nothing
@@ -126,10 +151,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		}
 		return 0
 
-	default:
-		fmt.Fprintf(stderr, "ttsmode: unknown subcommand %q\n", command)
-		return 2
 	}
+
+	// Unreachable: the switch above validates the subcommand.
+	return 2
 }
 
 // takeSessionFlag pulls an optional --session out of the front of the argument
@@ -149,18 +174,36 @@ func takeSessionFlag(args []string) (string, []string) {
 	return "", args
 }
 
-func stateDir(env func(string) string) string {
+// stateDir reports where session state and the log live, or an error when
+// there is nowhere safe to put them.
+//
+// It deliberately has no fallback. Deriving a path from an unset HOME gave a
+// fixed, predictable location that any local user could pre-create, and both
+// the state write and the log append follow symlinks. The shell wrappers
+// refuse in the same situation, so refusing here keeps the two halves
+// agreeing about what "no HOME" means.
+func stateDir(env func(string) string) (string, error) {
 	if dir := env("TTSMODE_STATE_DIR"); dir != "" {
-		return dir
+		return dir, nil
 	}
-	return filepath.Join(homeDir(env), ".claude", "tts-mode")
+	home, err := homeDir(env)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".claude", "tts-mode"), nil
 }
 
+// envFilePath returns an empty string when it cannot be resolved. An empty
+// path fails the read, which apiKey already reports as a missing key.
 func envFilePath(env func(string) string) string {
 	if path := env("TTSMODE_ENV_FILE"); path != "" {
 		return path
 	}
-	return filepath.Join(homeDir(env), ".secrets", "elevenlabs.env")
+	home, err := homeDir(env)
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".secrets", "elevenlabs.env")
 }
 
 // wrapperPath is the absolute path to tts-say.sh, which the instruction tells
@@ -173,15 +216,21 @@ func wrapperPath(env func(string) string) string {
 	return "tts-say.sh"
 }
 
-func homeDir(env func(string) string) string {
-	if home := env("HOME"); home != "" {
-		return home
+// homeDir refuses rather than falling back to the current directory. Returning
+// "." put state and the log under whatever directory a hook happened to run
+// in, which is the same predictable-path exposure as a fixed /tmp path and
+// also littered the user's projects.
+//
+// os.UserHomeDir is deliberately not used as a fallback. On Linux it returns
+// $HOME and errors when that is unset, so it is redundant with the lookup
+// below, and because it reads the process environment directly it would
+// bypass the injected env and make the two disagree under test.
+func homeDir(env func(string) string) (string, error) {
+	home := env("HOME")
+	if home == "" {
+		return "", errors.New("HOME is not set")
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "."
-	}
-	return home
+	return home, nil
 }
 
 // maxLogBytes caps the diagnostic log. Prune only walks the sessions

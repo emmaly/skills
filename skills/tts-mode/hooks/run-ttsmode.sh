@@ -69,8 +69,12 @@ trap 'give_up "unexpected error in the wrapper"' ERR
 # mtime newer than the source and the staleness check below skips the rebuild
 # and runs it. Creating the directory is not a check, because mkdir -p
 # succeeds on a directory someone else already owns.
-if [[ -z "${XDG_CACHE_HOME:-}" && -z "$HOME_DIR" ]]; then
-    give_up "HOME is not set; set HOME or XDG_CACHE_HOME"
+# Both halves are required, and they are different directories: the cache
+# holds the binary, the state dir holds sessions and the log. Guarding only
+# the cache let /tts on succeed with XDG_CACHE_HOME set and HOME unset, after
+# which tts-say.sh refused every line and nothing was ever spoken or logged.
+if [[ -z "$HOME_DIR" ]] && { [[ -z "${XDG_CACHE_HOME:-}" ]] || [[ -z "${TTSMODE_STATE_DIR:-}" ]]; }; then
+    give_up "HOME is not set; set HOME, or set both XDG_CACHE_HOME and TTSMODE_STATE_DIR"
 fi
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
