@@ -9,6 +9,7 @@
 //	off     Disable for this session.
 //	status  Report the current state.
 //	say     Render one line and play it.
+//	log     Append a message to the log, for the shell wrapper's use.
 //	prune   Remove state files from sessions that ended long ago.
 //
 // Session id resolution, in order: the --session flag, the session_id in the
@@ -101,7 +102,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		// Join rather than take the first argument. The instruction shows the
 		// text quoted, but an unquoted line would otherwise be truncated at
 		// the first space and the rest silently dropped.
-		return runSay(strings.Join(rest, " "), ElevenLabs{Key: key}, CommandPlayer{}, logf)
+		client := ElevenLabs{Key: key, BaseURL: env("TTSMODE_API_BASE")}
+		return runSay(strings.Join(rest, " "), client, CommandPlayer{}, logf)
+
+	case "log":
+		// Lets the shell wrapper record what it could not do. A dropped line
+		// with nothing in the log is exactly the failure the README promises
+		// cannot happen, and the wrapper has no other way to write there.
+		if len(rest) > 0 {
+			logf("%s", strings.Join(rest, " "))
+		}
+		return 0
 
 	case "prune":
 		removed, err := store.Prune(pruneAge, time.Now())

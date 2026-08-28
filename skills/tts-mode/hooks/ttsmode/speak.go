@@ -21,7 +21,11 @@ const (
 	voiceID      = "XdflFrQO8wbGpWMNZHFr"
 	modelID      = "eleven_v3"
 	outputFormat = "mp3_44100_192"
-	defaultBase  = "https://api.us.elevenlabs.io"
+
+	// The generic host, not a data-residency one. An account on an isolated
+	// EU, India, or Singapore workspace needs a different base, so
+	// TTSMODE_API_BASE overrides this without editing and rebuilding source.
+	defaultBase = "https://api.elevenlabs.io"
 )
 
 // Synth turns text into audio bytes.
@@ -177,6 +181,11 @@ func (CommandPlayer) Play(audio []byte) error {
 		return fmt.Errorf("close temp file: %w", err)
 	}
 
+	// Try each player until one succeeds. Stopping at the first installed one
+	// would strand a headless box that has mpv but no reachable audio device,
+	// logging the same mpv failure forever while an installed ffplay that
+	// would have worked is never tried.
+	var lastErr error
 	for _, candidate := range [][]string{
 		{"mpv", "--no-video", "--really-quiet"},
 		{"ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"},
@@ -186,16 +195,22 @@ func (CommandPlayer) Play(audio []byte) error {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), playTimeout)
-		defer cancel()
-
 		args := append(candidate[1:], file.Name())
-		if err := exec.CommandContext(ctx, path, args...).Run(); err != nil {
-			if ctx.Err() != nil {
-				return fmt.Errorf("%s timed out after %s", candidate[0], playTimeout)
-			}
-			return fmt.Errorf("%s: %w", candidate[0], err)
+		err = exec.CommandContext(ctx, path, args...).Run()
+		timedOut := ctx.Err() != nil
+		cancel()
+
+		if err == nil {
+			return nil
 		}
-		return nil
+		if timedOut {
+			lastErr = fmt.Errorf("%s timed out after %s", candidate[0], playTimeout)
+		} else {
+			lastErr = fmt.Errorf("%s: %w", candidate[0], err)
+		}
+	}
+	if lastErr != nil {
+		return lastErr
 	}
 	return fmt.Errorf("no audio player found, install mpv or ffplay")
 }

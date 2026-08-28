@@ -186,3 +186,40 @@ func TestPruneRemovesOldKeepsNew(t *testing.T) {
 		t.Fatal("prune left a stale session")
 	}
 }
+
+// Prune reads mtime, so a session enabled long ago and still alive would be
+// switched off by the next unrelated session that starts. Enabled refreshes
+// the file to make mtime a last-seen time instead.
+func TestEnabledRefreshesStaleSession(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	if err := store.Enable("long-lived"); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+
+	target := filepath.Join(store.Dir, "sessions", "long-lived")
+	old := time.Now().Add(-30 * 24 * time.Hour)
+	if err := os.Chtimes(target, old, old); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+
+	if !store.Enabled("long-lived") {
+		t.Fatal("session should still be enabled")
+	}
+
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if time.Since(info.ModTime()) > time.Minute {
+		t.Fatal("Enabled did not refresh the mtime, so prune will delete a live session")
+	}
+
+	// And now prune must leave it alone.
+	removed, err := store.Prune(7*24*time.Hour, time.Now())
+	if err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+	if removed != 0 {
+		t.Fatalf("prune removed %d live sessions", removed)
+	}
+}

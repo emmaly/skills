@@ -109,16 +109,53 @@ func TestHookSubcommandSilentWhenOff(t *testing.T) {
 }
 
 // A say with no configured key must not fail the turn.
+//
+// The session is enabled first on purpose. Without that, an empty session id
+// is rejected by the store, say returns at the "TTS is off" branch, and the
+// key path this test is named for is never reached.
 func TestSayWithoutKeyExitsZero(t *testing.T) {
 	dir := t.TempDir()
 	env := envWith(map[string]string{
-		"TTSMODE_STATE_DIR": dir,
-		"TTSMODE_ENV_FILE":  filepath.Join(dir, "absent.env"),
+		"CLAUDE_CODE_SESSION_ID": "keyless",
+		"TTSMODE_STATE_DIR":      dir,
+		"TTSMODE_ENV_FILE":       filepath.Join(dir, "absent.env"),
 	})
 	var out bytes.Buffer
+	if code := run([]string{"on"}, strings.NewReader(""), &out, &out, env); code != 0 {
+		t.Fatalf("on exit %d", code)
+	}
+	out.Reset()
 
 	if code := run([]string{"say", "hello"}, strings.NewReader(""), &out, &out, env); code != 0 {
 		t.Fatalf("say exit %d, want 0", code)
+	}
+
+	logged, err := os.ReadFile(filepath.Join(dir, "log"))
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(logged), "no api key") {
+		t.Fatalf("expected the key path to be reached, log says %q", logged)
+	}
+}
+
+// The wrapper needs somewhere to record what it could not do, since a dropped
+// line with nothing in the log is the failure the README rules out.
+func TestLogSubcommandWritesToTheLog(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{"TTSMODE_STATE_DIR": dir})
+	var out bytes.Buffer
+
+	if code := run([]string{"log", "dropped", "a", "line"}, strings.NewReader(""), &out, &out, env); code != 0 {
+		t.Fatalf("log exit %d", code)
+	}
+
+	logged, err := os.ReadFile(filepath.Join(dir, "log"))
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(logged), "dropped a line") {
+		t.Fatalf("log says %q", logged)
 	}
 }
 

@@ -157,3 +157,11 @@ func TestElevenLabsErrorIncludesBody(t *testing.T) {
 		t.Fatalf("error lost the API detail: %v", err)
 	}
 }
+
+// The base URL defaults to the generic host, overridable for an isolated
+// residency workspace. Nothing outside tests set it before.
+func TestElevenLabsDefaultBaseIsGenericHost(t *testing.T) {
+	if defaultBase != "https://api.elevenlabs.io" {
+		t.Fatalf("defaultBase is %q, want the generic host", defaultBase)
+	}
+}

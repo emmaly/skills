@@ -87,8 +87,19 @@ func (s Store) Disable(session string) error {
 	return nil
 }
 
+// refreshAfter is how stale a session file may get before Enabled touches it.
+// Pruning reads mtime, so without a refresh a session enabled more than the
+// prune age ago and still alive gets switched off by the next unrelated
+// session that starts. Touching on a timer rather than on every call keeps
+// that from being a write per prompt.
+const refreshAfter = time.Hour
+
 // Enabled reports whether TTS is on. Any error reads as off, because the hook
 // calls this on every prompt and the safe failure is silence.
+//
+// It also refreshes the file's mtime, making it a last-seen time rather than
+// an enabled-at time, so a long-lived session is not pruned out from under
+// itself.
 func (s Store) Enabled(session string) bool {
 	target, err := s.path(session)
 	if err != nil {
@@ -99,7 +110,14 @@ func (s Store) Enabled(session string) bool {
 		return false
 	}
 	// A directory named like a session is not an enabled session.
-	return info.Mode().IsRegular()
+	if !info.Mode().IsRegular() {
+		return false
+	}
+	if now := time.Now(); now.Sub(info.ModTime()) > refreshAfter {
+		// Best effort. A read-only state directory should not turn TTS off.
+		_ = os.Chtimes(target, now, now)
+	}
+	return true
 }
 
 // Prune removes session files last modified more than age ago and reports how

@@ -80,8 +80,16 @@ stop speech or spend.
 3. Write the audio to a temporary file, play it, delete it.
 
 Playback is backgrounded so the calling turn never waits on audio. A `flock`
-on a per-session lock file serializes playback, so a progress line and a
-closing line queue rather than talk over each other.
+serializes playback, so a progress line and a closing line queue rather than
+talk over each other.
+
+The lock is per user, not per session. The audio device is machine-wide, so
+two enabled sessions speaking at once would overlap in the room; serializing
+across sessions is the point. The wait is bounded, and a line dropped because
+the wait expired is written to the log rather than vanishing. Where `flock` is
+missing, as on macOS, playback runs unlocked and says so in the log: two lines
+overlapping is better than silence on a machine that meets every documented
+requirement.
 
 ### State
 

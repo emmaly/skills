@@ -29,7 +29,19 @@ Set `TTSMODE_ENV_FILE` to read it from somewhere else. `ELEVENLABS_API_KEY` in
 the environment wins over both.
 
 Either `mpv` or `ffplay` on `PATH` for playback. Go, to build the helper on
-first use.
+first use. `flock` is used to keep two lines from overlapping; without it, as
+on macOS, playback still works but is not serialized.
+
+## Environment
+
+    ELEVENLABS_API_KEY   the key, if you would rather not use the env file
+    TTSMODE_ENV_FILE     where to read the key from
+    TTSMODE_STATE_DIR    where session state and the log live
+    TTSMODE_API_BASE     override the API host
+
+`TTSMODE_API_BASE` matters only for an isolated data-residency workspace, which
+is a separate account on a host such as `https://api.eu.residency.elevenlabs.io`.
+The default is the generic host.
 
 ## Cost
 
