@@ -119,7 +119,9 @@ The text `ttsmode hook` prints when enabled:
   output carries into a room that the terminal does not.
 - Call it as `ttsmode say "<text>"`.
 
-Fifteen words is roughly six seconds of speech and about 0.02 cents.
+Fifteen words is roughly six seconds of speech and about a hundred characters.
+Billing is per character, so three lines a turn is about three hundred
+characters against a monthly allowance.
 
 ## Voice settings
 

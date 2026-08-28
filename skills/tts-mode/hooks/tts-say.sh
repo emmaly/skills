@@ -30,7 +30,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # why a fallback chain is the wrong shape here even though a stale
 # XDG_RUNTIME_DIR is a real problem.
 STATE_DIR="${TTSMODE_STATE_DIR:-${HOME:-/tmp}/.claude/tts-mode}"
-mkdir -p "$STATE_DIR" 2>/dev/null || STATE_DIR="/tmp"
+
+# No fallback path. Falling back to a fixed /tmp/lock let a local user plant a
+# symlink there and have the redirect below truncate whatever it pointed at,
+# with the hook's own privileges. If the state directory cannot be created,
+# there is nowhere safe to lock, so say nothing and exit successfully.
+if ! mkdir -p "$STATE_DIR" 2>/dev/null; then
+    exit 0
+fi
 LOCK="${STATE_DIR}/lock"
 
 # Text is joined rather than taken as "$1". The instruction shows it quoted,

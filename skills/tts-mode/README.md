@@ -45,8 +45,18 @@ The default is the generic host.
 
 ## Cost
 
-Billing is per character, so a fifteen-word line is roughly two hundredths of a
-cent. Bitrate and voice settings do not affect price.
+Billing is per character. A fifteen-word line runs about a hundred characters,
+so a turn with three lines is roughly three hundred. Against a plan that
+includes 300,000 characters a month, that is on the order of a thousand turns
+before the allowance is gone, and per-character billing after it.
+
+Bitrate and voice settings do not affect price. The voice's rate multiplier
+does, which is why this one is pinned to 1.0.
+
+Check your own allowance and usage with:
+
+    GET /v1/user/subscription
+    GET /v1/usage/character-stats
 
 ## When it goes quiet
 

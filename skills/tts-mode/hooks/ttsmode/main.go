@@ -196,10 +196,14 @@ func logger(store Store) func(string, ...any) {
 			return
 		}
 		path := store.LogPath()
-		if info, err := os.Stat(path); err == nil && info.Size() > maxLogBytes {
+		record := fmt.Sprintf("%s %s\n", time.Now().UTC().Format(time.RFC3339), fmt.Sprintf(format, args...))
+
+		// Measure the record against the cap, not just the file. Checking only
+		// the existing size let the file finish one whole record above the
+		// limit, and an oversized single record could exceed it outright.
+		if info, err := os.Stat(path); err == nil && info.Size()+int64(len(record)) > maxLogBytes {
 			// Start over rather than keep a tail. What matters when speech goes
-			// quiet is the most recent failure, and the newest entries land
-			// immediately after this.
+			// quiet is the most recent failure, and it lands immediately below.
 			_ = os.Truncate(path, 0)
 		}
 		file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
@@ -207,6 +211,6 @@ func logger(store Store) func(string, ...any) {
 			return
 		}
 		defer file.Close()
-		fmt.Fprintf(file, "%s %s\n", time.Now().UTC().Format(time.RFC3339), fmt.Sprintf(format, args...))
+		io.WriteString(file, record)
 	}
 }

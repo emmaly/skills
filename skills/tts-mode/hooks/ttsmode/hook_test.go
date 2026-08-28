@@ -116,3 +116,30 @@ func TestHookPrefersOverrideOverPayload(t *testing.T) {
 		t.Fatal("the --session override was ignored in favour of the payload")
 	}
 }
+
+// A plugin root with a space in it is out of our control, and an unquoted path
+// would have the shell run its first segment as the command. TTS would be on
+// and silent.
+func TestHookQuotesWrapperPathWithSpaces(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	if err := store.Enable("abc"); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	var out bytes.Buffer
+
+	runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "", "/Application Support/tts-say.sh")
+
+	if !strings.Contains(out.String(), `'/Application Support/tts-say.sh'`) {
+		t.Fatalf("wrapper path was not quoted:\n%s", out.String())
+	}
+}
+
+// A single quote in the path would otherwise close the quoting and let the
+// remainder of the path be read as shell syntax.
+func TestShellQuoteEscapesSingleQuotes(t *testing.T) {
+	got := shellQuote("/home/o'brien/tts-say.sh")
+	want := `'/home/o'"'"'brien/tts-say.sh'`
+	if got != want {
+		t.Fatalf("got %s, want %s", got, want)
+	}
+}

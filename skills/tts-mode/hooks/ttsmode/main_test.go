@@ -301,3 +301,29 @@ func TestLogIsCapped(t *testing.T) {
 		t.Fatal("the newest entry was lost")
 	}
 }
+
+// A file sitting exactly at the cap used to pass the size check, so the log
+// finished a whole record above the limit.
+func TestLogIsCappedAtExactLimit(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{"TTSMODE_STATE_DIR": dir})
+	logPath := filepath.Join(dir, "log")
+
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(logPath, bytes.Repeat([]byte("x"), maxLogBytes), 0o600); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+
+	var out bytes.Buffer
+	run([]string{"log", "at the cap"}, strings.NewReader(""), &out, &out, env)
+
+	info, err := os.Stat(logPath)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Size() > maxLogBytes {
+		t.Fatalf("log is %d bytes, cap is %d", info.Size(), maxLogBytes)
+	}
+}

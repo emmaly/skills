@@ -15,7 +15,8 @@ import (
 // missed line is invisible to the user until they notice the silence.
 //
 // The word cap and the line cap bound both chatter and cost. Fifteen words is
-// roughly six seconds of speech and about two hundredths of a cent.
+// roughly six seconds of speech and about a hundred characters, and billing is
+// per character.
 const instructionTemplate = `## Spoken output is ON for this session
 
 Speak your work aloud by running this command:
@@ -62,8 +63,17 @@ func runHook(stdin io.Reader, stdout io.Writer, store Store, env func(string) st
 	if session == "" || !store.Enabled(session) {
 		return 0
 	}
-	fmt.Fprintf(stdout, instructionTemplate, wrapperPath)
+	fmt.Fprintf(stdout, instructionTemplate, shellQuote(wrapperPath))
 	return 0
+}
+
+// shellQuote wraps a path so the shell reads it as one argument.
+//
+// The plugin root is not ours to choose, and an unquoted path containing a
+// space would have the shell treat the first segment as the command. TTS would
+// be on and simply produce nothing.
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
 }
 
 // sessionFromPayload reads the session id, treating any parse failure as
