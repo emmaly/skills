@@ -39,10 +39,10 @@ on macOS, playback still works but is not serialized.
     TTSMODE_STATE_DIR    where session state and the log live
     TTSMODE_API_BASE     override the API host
 
-`HOME`, `XDG_CACHE_HOME` and `TTSMODE_STATE_DIR` must be absolute. A relative
-one resolves against whatever directory a hook happened to run in, so it is
-refused rather than followed. Without `HOME`, both `XDG_CACHE_HOME` and
-`TTSMODE_STATE_DIR` are required: one holds the compiled binary, the other
+`HOME`, `XDG_CACHE_HOME`, `TTSMODE_STATE_DIR` and `TTSMODE_ENV_FILE` must be
+absolute. A relative one resolves against whatever directory a hook happened
+to run in, so it is refused rather than followed. Without `HOME`, both
+`XDG_CACHE_HOME` and `TTSMODE_STATE_DIR` are required: one holds the compiled binary, the other
 holds session state and the log.
 
 `TTSMODE_API_BASE` matters only for an isolated data-residency workspace, which
@@ -63,6 +63,17 @@ Check your own allowance and usage with:
 
     GET /v1/user/subscription
     GET /v1/usage/character-stats
+
+## Why the spoken line goes in on stdin
+
+The injected instruction tells Claude to pass the line through a heredoc with
+a quoted delimiter, not as a quoted argument. Claude's Bash executor performs
+shell substitution, and double quotes do not disable `$(...)`, backticks, or
+variable expansion. The summary is written by a model that has just been
+reading files and tool output, so a line quoting a filename or an error string
+would have run as shell source. A quoted heredoc is not expanded at all.
+
+Arguments still work when calling `tts-say.sh` by hand.
 
 ## When it goes quiet
 

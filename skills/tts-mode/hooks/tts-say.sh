@@ -54,10 +54,23 @@ if ! mkdir -p "$STATE_DIR" 2>/dev/null; then
 fi
 LOCK="${STATE_DIR}/lock"
 
-# Text is joined rather than taken as "$1". The instruction shows it quoted,
-# but a model that drops the quotes would otherwise have its line truncated at
-# the first space with the rest silently discarded.
-TEXT="$*"
+# Text comes from stdin when no argument is given, and the injected
+# instruction always uses that form.
+#
+# Putting the summary in the command line made it shell source. Claude's Bash
+# executor performs substitution, and double quotes do not disable $(...),
+# backticks, or variable expansion, so a summary quoting a filename or a log
+# line containing those would run before this script ever saw the argument.
+# The summary is written by a model that has been reading files, so its content
+# is not trustworthy input to a shell. A heredoc with a quoted delimiter is not
+# expanded at all.
+#
+# Arguments still work, for calling this by hand.
+if (( $# )); then
+    TEXT="$*"
+else
+    TEXT="$(cat)"
+fi
 
 if [[ -z "${TEXT//[[:space:]]/}" ]]; then
     exit 0

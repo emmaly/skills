@@ -120,14 +120,19 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 			logf("say ignored: TTS is off for this session")
 			return 0
 		}
-		key, err := apiKey(env, envFilePath(env))
+		envFile, err := envFilePath(env)
+		if err != nil {
+			logf("%v", err)
+			return 0
+		}
+		key, err := apiKey(env, envFile)
 		if err != nil {
 			logf("no api key: %v", err)
 			return 0
 		}
-		// Join rather than take the first argument. The instruction shows the
-		// text quoted, but an unquoted line would otherwise be truncated at
-		// the first space and the rest silently dropped.
+		// Join rather than take the first argument. The wrapper passes the line
+		// as one argument, but a hand-run call that splits it would otherwise
+		// be truncated at the first space with the rest silently dropped.
 		client := ElevenLabs{Key: key, BaseURL: env("TTSMODE_API_BASE")}
 		return runSay(strings.Join(rest, " "), client, CommandPlayer{}, logf)
 
@@ -207,17 +212,24 @@ func stateDir(env func(string) string) (string, error) {
 	return filepath.Join(home, ".claude", "tts-mode"), nil
 }
 
-// envFilePath returns an empty string when it cannot be resolved. An empty
-// path fails the read, which apiKey already reports as a missing key.
-func envFilePath(env func(string) string) string {
+// envFilePath reports where to read the API key from, or an error when there
+// is no safe path to read.
+//
+// A relative override is refused for the same reason as the state directory,
+// and here it selects which key gets used: a hook running in a checked-out
+// repository would read that project's own .secrets/elevenlabs.env.
+func envFilePath(env func(string) string) (string, error) {
 	if path := env("TTSMODE_ENV_FILE"); path != "" {
-		return path
+		if !filepath.IsAbs(path) {
+			return "", fmt.Errorf("TTSMODE_ENV_FILE is not an absolute path: %q", path)
+		}
+		return path, nil
 	}
 	home, err := homeDir(env)
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return filepath.Join(home, ".secrets", "elevenlabs.env")
+	return filepath.Join(home, ".secrets", "elevenlabs.env"), nil
 }
 
 // wrapperPath is the absolute path to tts-say.sh, which the instruction tells

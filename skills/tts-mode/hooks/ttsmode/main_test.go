@@ -437,3 +437,30 @@ func TestRelativePathsAreRefused(t *testing.T) {
 		}
 	}
 }
+
+// A relative override selects which key is used: a hook running inside a
+// checked-out repository would read that project's own .secrets file.
+func TestRelativeEnvFileIsRefused(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(t.TempDir())
+	env := envWith(map[string]string{
+		"TTSMODE_STATE_DIR":      dir,
+		"TTSMODE_ENV_FILE":       ".secrets/elevenlabs.env",
+		"CLAUDE_CODE_SESSION_ID": "abc",
+	})
+	if err := (Store{Dir: dir}).Enable("abc"); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+
+	var out bytes.Buffer
+	if code := run([]string{"say", "hello"}, strings.NewReader(""), &out, &out, env); code != 0 {
+		t.Fatalf("exit code %d, want 0", code)
+	}
+	body, err := os.ReadFile(filepath.Join(dir, "log"))
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(body), "TTSMODE_ENV_FILE is not an absolute path") {
+		t.Fatalf("refusal was not logged:\n%s", body)
+	}
+}

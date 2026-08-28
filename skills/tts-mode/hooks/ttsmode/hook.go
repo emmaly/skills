@@ -21,7 +21,13 @@ const instructionTemplate = `## Spoken output is ON for this session
 
 Speak your work aloud by running this command:
 
-    %s "<text>"
+    %s <<'TTS_LINE'
+    <text>
+    TTS_LINE
+
+Use that form exactly. The quoted delimiter keeps the shell from reading your
+line as source, so it is safe to include a filename, an error string, or
+anything else you were just looking at.
 
 When to speak:
 

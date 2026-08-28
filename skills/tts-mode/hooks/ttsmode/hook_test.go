@@ -143,3 +143,24 @@ func TestShellQuoteEscapesSingleQuotes(t *testing.T) {
 		t.Fatalf("got %s, want %s", got, want)
 	}
 }
+
+// The summary is written by a model that has been reading files, so it is not
+// trustworthy input to a shell. Double quotes do not disable substitution, so
+// the instruction must not put it on the command line at all.
+func TestInstructionDoesNotPutTextOnTheCommandLine(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	if err := store.Enable("abc"); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	var out bytes.Buffer
+
+	runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "", "/p/tts-say.sh")
+
+	got := out.String()
+	if strings.Contains(got, `"<text>"`) {
+		t.Fatalf("instruction still quotes the text as an argument:\n%s", got)
+	}
+	if !strings.Contains(got, "<<'TTS_LINE'") {
+		t.Fatalf("instruction does not use a quoted heredoc:\n%s", got)
+	}
+}
