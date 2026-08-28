@@ -160,7 +160,22 @@ func TestInstructionDoesNotPutTextOnTheCommandLine(t *testing.T) {
 	if strings.Contains(got, `"<text>"`) {
 		t.Fatalf("instruction still quotes the text as an argument:\n%s", got)
 	}
-	if !strings.Contains(got, "<<'TTS_LINE'") {
+	if !strings.Contains(got, `<<'TTS_LINE_`) {
 		t.Fatalf("instruction does not use a quoted heredoc:\n%s", got)
+	}
+	// bash requires the terminator at column zero. Indented, the heredoc runs
+	// to end of input and swallows whatever the model runs next.
+	for _, line := range strings.Split(got, "\n") {
+		if strings.Contains(line, "TTS_LINE_") && strings.HasPrefix(line, " ") {
+			t.Fatalf("heredoc line is indented: %q", line)
+		}
+	}
+}
+
+// A fixed delimiter is a word the model was just shown, and a line equal to it
+// would close the heredoc early.
+func TestHeredocDelimiterVariesPerInjection(t *testing.T) {
+	if a, b := heredocDelimiter(), heredocDelimiter(); a == b {
+		t.Fatalf("delimiter is constant: %s", a)
 	}
 }

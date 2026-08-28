@@ -440,7 +440,7 @@ func TestRelativePathsAreRefused(t *testing.T) {
 
 // A relative override selects which key is used: a hook running inside a
 // checked-out repository would read that project's own .secrets file.
-func TestRelativeEnvFileIsRefused(t *testing.T) {
+func TestRelativeEnvFileIsRefusedWhenThereIsNoKey(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(t.TempDir())
 	env := envWith(map[string]string{
@@ -462,5 +462,40 @@ func TestRelativeEnvFileIsRefused(t *testing.T) {
 	}
 	if !strings.Contains(string(body), "TTSMODE_ENV_FILE is not an absolute path") {
 		t.Fatalf("refusal was not logged:\n%s", body)
+	}
+}
+
+// apiKey prefers the environment and only falls back to the file, so a refused
+// or underivable path must not by itself stop a run whose key is already in
+// the environment. That is the documented HOME-less setup.
+func TestKeyInEnvironmentSurvivesAnUnusableEnvFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(t.TempDir())
+	if err := (Store{Dir: dir}).Enable("abc"); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+
+	for name, extra := range map[string]map[string]string{
+		"no home":      {},
+		"relative env": {"TTSMODE_ENV_FILE": ".secrets/elevenlabs.env"},
+	} {
+		vars := map[string]string{
+			"TTSMODE_STATE_DIR":      dir,
+			"ELEVENLABS_API_KEY":     "sk-test",
+			"CLAUDE_CODE_SESSION_ID": "abc",
+			"TTSMODE_API_BASE":       "http://127.0.0.1:1",
+		}
+		for k, v := range extra {
+			vars[k] = v
+		}
+		_ = os.Remove(filepath.Join(dir, "log"))
+
+		var out bytes.Buffer
+		run([]string{"say", "hello"}, strings.NewReader(""), &out, &out, envWith(vars))
+
+		body, _ := os.ReadFile(filepath.Join(dir, "log"))
+		if strings.Contains(string(body), "no api key") {
+			t.Fatalf("%s: gave up on the key despite one in the environment:\n%s", name, body)
+		}
 	}
 }

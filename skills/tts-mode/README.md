@@ -73,6 +73,10 @@ variable expansion. The summary is written by a model that has just been
 reading files and tool output, so a line quoting a filename or an error string
 would have run as shell source. A quoted heredoc is not expanded at all.
 
+The delimiter is drawn fresh each turn, so a spoken line cannot be written to
+match it and close the heredoc early. Both the command and the delimiter are
+emitted at column zero, because bash requires the terminator unindented.
+
 Arguments still work when calling `tts-say.sh` by hand.
 
 ## When it goes quiet

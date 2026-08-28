@@ -120,13 +120,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 			logf("say ignored: TTS is off for this session")
 			return 0
 		}
-		envFile, err := envFilePath(env)
-		if err != nil {
-			logf("%v", err)
-			return 0
-		}
+		// apiKey prefers ELEVENLABS_API_KEY and only falls back to the file, so
+		// a refused path is not itself a failure. Bailing on it here broke the
+		// documented HOME-less setup, where the key is in the environment and
+		// no file is ever opened. The refusal is reported only when there is
+		// also no key, which is when it explains the silence.
+		envFile, pathErr := envFilePath(env)
 		key, err := apiKey(env, envFile)
 		if err != nil {
+			if pathErr != nil {
+				logf("%v", pathErr)
+			}
 			logf("no api key: %v", err)
 			return 0
 		}

@@ -68,6 +68,11 @@ LOCK="${STATE_DIR}/lock"
 # Arguments still work, for calling this by hand.
 if (( $# )); then
     TEXT="$*"
+elif [[ -t 0 ]]; then
+    # Every other guard here exits promptly, and cat on a terminal would hang
+    # with no prompt and no message. Someone running this by hand with no
+    # argument gets the old immediate exit back.
+    exit 0
 else
     TEXT="$(cat)"
 fi
