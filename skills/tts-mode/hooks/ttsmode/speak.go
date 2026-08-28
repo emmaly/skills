@@ -38,6 +38,13 @@ type Player interface {
 	Play(audio []byte) error
 }
 
+// maxSpokenChars bounds one line. The fifteen-word guidance lives in the
+// injected instruction, which is guidance a model can ignore; billing is per
+// character, so a pasted stack trace would be synthesized and charged in full.
+// This makes the README's cost estimate a property of the code instead. Four
+// hundred characters is roughly four times the intended line.
+const maxSpokenChars = 400
+
 // runSay renders one line and plays it. It always returns 0: speech is a
 // convenience, and no failure of it should fail the turn that asked for it.
 func runSay(text string, synth Synth, player Player, logf func(string, ...any)) int {
@@ -45,6 +52,10 @@ func runSay(text string, synth Synth, player Player, logf func(string, ...any)) 
 	if text == "" {
 		logf("empty text, nothing to speak")
 		return 0
+	}
+	if len(text) > maxSpokenChars {
+		logf("text was %d characters, truncated to %d", len(text), maxSpokenChars)
+		text = strings.TrimSpace(text[:maxSpokenChars])
 	}
 
 	audio, err := synth.Speak(text)

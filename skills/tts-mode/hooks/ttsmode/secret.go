@@ -66,29 +66,27 @@ func splitEnvLine(line string) (name, value string, ok bool) {
 	name = strings.TrimSpace(name)
 	value = strings.TrimSpace(value)
 
-	if quoted, ok := unquote(value); ok {
-		return name, quoted, true
+	// Quoted: take what is between the first pair of quotes and ignore
+	// everything after, which is where a trailing comment lives. A hash inside
+	// the quotes is data, not a comment.
+	//
+	// Order matters. Checking whether the whole value was quoted first meant
+	// `KEY="sk_abc"  # note` did not look quoted, because its last character
+	// was a comment character, so the quotes stayed in the value and were sent
+	// as part of the header.
+	if len(value) > 0 && (value[0] == '"' || value[0] == '\'') {
+		if end := strings.IndexByte(value[1:], value[0]); end >= 0 {
+			return name, value[1 : 1+end], true
+		}
+		// An unterminated quote is not a quoted value. Fall through and treat
+		// it literally rather than guessing where it should have ended.
 	}
 
-	// Unquoted only: strip a trailing comment. Without this, a line like
-	// `KEY=sk_abc  # main key` sent the comment as part of the header and the
-	// API answered 401, which logs identically to a genuinely wrong key.
-	// Inside quotes a hash is data, which is why this runs after unquote.
+	// Unquoted: a hash starts a comment. Without this, `KEY=sk_abc # main key`
+	// sent the comment as part of the header and the API answered 401, which
+	// logs identically to a genuinely wrong key.
 	if hash := strings.Index(value, "#"); hash >= 0 {
 		value = strings.TrimSpace(value[:hash])
 	}
 	return name, value, true
-}
-
-// unquote removes one matching pair of surrounding quotes, reporting whether
-// the value was quoted at all.
-func unquote(value string) (string, bool) {
-	if len(value) < 2 {
-		return value, false
-	}
-	first, last := value[0], value[len(value)-1]
-	if (first == '"' && last == '"') || (first == '\'' && last == '\'') {
-		return value[1 : len(value)-1], true
-	}
-	return value, false
 }

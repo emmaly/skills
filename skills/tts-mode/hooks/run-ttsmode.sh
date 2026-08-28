@@ -11,10 +11,17 @@ set -euo pipefail
 # This wrapper holds no logic beyond build-if-stale. Anything worth testing
 # belongs in the Go code, where it can be.
 
+# HOME is expanded below, under `set -u` and before the ERR trap is installed,
+# so an unset HOME would abort with a non-zero exit. Some systemd units and
+# container shells have no HOME, and for the UserPromptSubmit hook that is
+# exactly the "fail the turn it was only meant to observe" outcome this script
+# exists to avoid.
+HOME_DIR="${HOME:-/tmp}"
+
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
 SRC_DIR="${PLUGIN_ROOT}/hooks/ttsmode"
-CACHE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/tts-mode"
+CACHE_DIR="${XDG_CACHE_HOME:-${HOME_DIR}/.cache}/tts-mode"
 BIN="${CACHE_DIR}/ttsmode"
 
 # How a setup failure is reported depends on who asked.
@@ -33,7 +40,7 @@ case "$SUBCOMMAND" in
     *) USER_FACING=0 ;;
 esac
 
-LOG_DIR="${TTSMODE_STATE_DIR:-${HOME}/.claude/tts-mode}"
+LOG_DIR="${TTSMODE_STATE_DIR:-${HOME_DIR}/.claude/tts-mode}"
 
 give_up() {
     if (( USER_FACING )); then
@@ -45,8 +52,13 @@ give_up() {
     if [[ "$SUBCOMMAND" == "warm" ]]; then
         exit 0
     fi
+    # Every step is allowed to fail. Under errexit an unwritable log, for
+    # instance one left root-owned by a sudo run, would abort this function
+    # before its exit 0 and make the hook fail loudly: the precise outcome
+    # give_up exists to prevent.
     if mkdir -p "$LOG_DIR" 2>/dev/null; then
-        printf '%s cannot run, %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "${LOG_DIR}/log" 2>/dev/null
+        printf '%s cannot run, %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" \
+            >> "${LOG_DIR}/log" 2>/dev/null || true
     fi
     exit 0
 }

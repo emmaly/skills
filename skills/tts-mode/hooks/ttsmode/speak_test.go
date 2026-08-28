@@ -165,3 +165,29 @@ func TestElevenLabsDefaultBaseIsGenericHost(t *testing.T) {
 		t.Fatalf("defaultBase is %q, want the generic host", defaultBase)
 	}
 }
+
+// Billing is per character and the word limit lives only in an instruction a
+// model can ignore, so the cap has to be in the code.
+func TestSayTruncatesOverlongText(t *testing.T) {
+	synth := &fakeSynth{audio: []byte("mp3")}
+	long := strings.Repeat("a", maxSpokenChars*3)
+
+	if code := runSay(long, synth, &fakePlayer{}, discardf); code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	if len(synth.got) > maxSpokenChars {
+		t.Fatalf("sent %d characters, cap is %d", len(synth.got), maxSpokenChars)
+	}
+}
+
+// A normal line is untouched.
+func TestSayLeavesNormalTextAlone(t *testing.T) {
+	synth := &fakeSynth{audio: []byte("mp3")}
+	line := "Tests pass and the branch is ready."
+
+	runSay(line, synth, &fakePlayer{}, discardf)
+
+	if synth.got != line {
+		t.Fatalf("got %q, want %q", synth.got, line)
+	}
+}

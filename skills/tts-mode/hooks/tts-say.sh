@@ -19,8 +19,19 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # The lock path carries the user id. A fixed /tmp/tts-mode.lock is shared on a
 # multi-user host, where another user's file makes the redirect fail and speech
 # dies with nothing logged, and a symlink planted there gets truncated.
-LOCK_DIR="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
-LOCK="${LOCK_DIR}/tts-mode-$(id -u).lock"
+#
+# XDG_RUNTIME_DIR is checked rather than trusted. systemd removes
+# /run/user/$UID when a user's last login session ends, while long-lived
+# processes such as tmux keep the now-dangling path in their environment. The
+# whole background job hangs off a redirect to this file, so a stale value
+# means the line disappears with nothing logged.
+for candidate in "${XDG_RUNTIME_DIR:-}" "${TMPDIR:-}" /tmp; do
+    if [[ -n "$candidate" && -d "$candidate" && -w "$candidate" ]]; then
+        LOCK_DIR="$candidate"
+        break
+    fi
+done
+LOCK="${LOCK_DIR:-/tmp}/tts-mode-$(id -u).lock"
 
 # Text is joined rather than taken as "$1". The instruction shows it quoted,
 # but a model that drops the quotes would otherwise have its line truncated at

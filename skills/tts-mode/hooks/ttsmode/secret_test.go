@@ -116,3 +116,35 @@ func TestAPIKeyKeepsHashInsideQuotes(t *testing.T) {
 		t.Fatalf("got %q, want abc#123", key)
 	}
 }
+
+// A quoted value followed by a comment. Checking whether the whole value was
+// quoted came first, so this did not look quoted (its last character is a
+// comment character) and the quotes were sent as part of the header.
+func TestAPIKeyQuotedWithTrailingComment(t *testing.T) {
+	cases := map[string]string{
+		"double": "ELEVENLABS_API_KEY=\"abc123\"  # main key\n",
+		"single": "ELEVENLABS_API_KEY='abc123'  # main key\n",
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			key, err := apiKey(noEnv, writeEnvFile(t, body))
+			if err != nil {
+				t.Fatalf("apiKey: %v", err)
+			}
+			if key != "abc123" {
+				t.Fatalf("got %q, want abc123", key)
+			}
+		})
+	}
+}
+
+// An unterminated quote is treated literally rather than guessed at.
+func TestAPIKeyUnterminatedQuote(t *testing.T) {
+	key, err := apiKey(noEnv, writeEnvFile(t, "ELEVENLABS_API_KEY=\"abc123\n"))
+	if err != nil {
+		t.Fatalf("apiKey: %v", err)
+	}
+	if key != "\"abc123" {
+		t.Fatalf("got %q, want the literal value", key)
+	}
+}
