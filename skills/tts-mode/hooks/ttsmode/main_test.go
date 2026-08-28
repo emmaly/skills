@@ -418,3 +418,22 @@ func TestStateDirOverrideWorksWithoutHome(t *testing.T) {
 		t.Fatal("state was not written to the override directory")
 	}
 }
+
+// A relative override resolves against whatever directory the hook ran in,
+// which is the same exposure as the old "." fallback.
+func TestRelativePathsAreRefused(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	for _, env := range []map[string]string{
+		{"HOME": "relative/home"},
+		{"TTSMODE_STATE_DIR": ".claude/tts-mode"},
+	} {
+		var out bytes.Buffer
+		if code := run([]string{"on"}, strings.NewReader(""), &out, &out, envWith(env)); code != 1 {
+			t.Fatalf("env %v: exit code %d, want 1", env, code)
+		}
+		if !strings.Contains(out.String(), "absolute") {
+			t.Fatalf("env %v: message does not say why:\n%s", env, out.String())
+		}
+	}
+}

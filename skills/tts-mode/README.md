@@ -39,6 +39,12 @@ on macOS, playback still works but is not serialized.
     TTSMODE_STATE_DIR    where session state and the log live
     TTSMODE_API_BASE     override the API host
 
+`HOME`, `XDG_CACHE_HOME` and `TTSMODE_STATE_DIR` must be absolute. A relative
+one resolves against whatever directory a hook happened to run in, so it is
+refused rather than followed. Without `HOME`, both `XDG_CACHE_HOME` and
+`TTSMODE_STATE_DIR` are required: one holds the compiled binary, the other
+holds session state and the log.
+
 `TTSMODE_API_BASE` matters only for an isolated data-residency workspace, which
 is a separate account on a host such as `https://api.eu.residency.elevenlabs.io`.
 The default is the generic host.

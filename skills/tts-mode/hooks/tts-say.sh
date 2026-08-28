@@ -43,6 +43,12 @@ if [[ -z "$STATE_DIR" ]]; then
     STATE_DIR="${HOME}/.claude/tts-mode"
 fi
 
+# Only absolute paths, for the same reason: a relative one resolves against
+# whatever directory this ran in, which is a tree someone else can pre-create.
+if [[ "$STATE_DIR" != /* ]]; then
+    exit 0
+fi
+
 if ! mkdir -p "$STATE_DIR" 2>/dev/null; then
     exit 0
 fi

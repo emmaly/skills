@@ -69,6 +69,18 @@ trap 'give_up "unexpected error in the wrapper"' ERR
 # mtime newer than the source and the staleness check below skips the rebuild
 # and runs it. Creating the directory is not a check, because mkdir -p
 # succeeds on a directory someone else already owns.
+# Only absolute paths. A relative override resolves against whatever
+# directory the hook happened to run in, which is the same exposure as a fixed
+# /tmp path: the tree can be pre-created by someone else, and here the
+# artifact is a binary this script execs rather than a file it writes. The XDG
+# spec says a relative XDG_CACHE_HOME must be ignored, so refusing one is also
+# what the spec asks for.
+for candidate in "$HOME_DIR" "${XDG_CACHE_HOME:-}" "${TTSMODE_STATE_DIR:-}"; do
+    if [[ -n "$candidate" && "$candidate" != /* ]]; then
+        give_up "paths must be absolute, got ${candidate}"
+    fi
+done
+
 # Both halves are required, and they are different directories: the cache
 # holds the binary, the state dir holds sessions and the log. Guarding only
 # the cache let /tts on succeed with XDG_CACHE_HOME set and HOME unset, after

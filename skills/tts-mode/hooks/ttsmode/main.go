@@ -153,7 +153,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 
 	}
 
-	// Unreachable: the switch above validates the subcommand.
+	// Unreachable while the validation list above and the dispatch switch agree.
+	// Saying so beats a bare exit 2: for the unattended subcommands the wrapper
+	// discards the exit code, so drift would be a silent no-op with nothing in
+	// the log, which is the outcome the user-facing split exists to prevent.
+	fmt.Fprintf(stderr, "ttsmode: subcommand %q passed validation but has no handler\n", command)
 	return 2
 }
 
@@ -184,6 +188,12 @@ func takeSessionFlag(args []string) (string, []string) {
 // agreeing about what "no HOME" means.
 func stateDir(env func(string) string) (string, error) {
 	if dir := env("TTSMODE_STATE_DIR"); dir != "" {
+		// Absolute only. A relative override resolves against whatever
+		// directory the hook ran in, which is the exposure the "." fallback
+		// was removed to close.
+		if !filepath.IsAbs(dir) {
+			return "", fmt.Errorf("TTSMODE_STATE_DIR is not an absolute path: %q", dir)
+		}
 		return dir, nil
 	}
 	home, err := homeDir(env)
@@ -229,6 +239,9 @@ func homeDir(env func(string) string) (string, error) {
 	home := env("HOME")
 	if home == "" {
 		return "", errors.New("HOME is not set")
+	}
+	if !filepath.IsAbs(home) {
+		return "", fmt.Errorf("HOME is not an absolute path: %q", home)
 	}
 	return home, nil
 }
