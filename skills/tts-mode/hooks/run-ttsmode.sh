@@ -19,20 +19,34 @@ BIN="${CACHE_DIR}/ttsmode"
 
 # How a setup failure is reported depends on who asked.
 #
-# A hook must never fail the turn it was only meant to observe, so it exits 0
-# and stays quiet. A user-facing command is the opposite: /tts on printing
-# nothing and exiting 0 reads as success, and the user concludes TTS is on when
-# it is not. These failures happen before the binary exists, so the binary
-# cannot be the one to report them.
-case "${1:-}" in
-    hook | prune | log) USER_FACING=0 ;;
-    *) USER_FACING=1 ;;
+# on/off/status are typed by a person, so /tts on printing nothing and exiting
+# 0 would read as success while TTS stayed off. They fail loudly.
+#
+# Everything else runs unattended, from a hook or from the backgrounded say
+# wrapper whose output goes to /dev/null. Those exit 0 and write to the log
+# instead. That write has to happen here rather than in the binary, because
+# these are the failures where the binary does not exist yet: no Go, no source,
+# a build that will not compile.
+SUBCOMMAND="${1:-}"
+case "$SUBCOMMAND" in
+    on | off | status) USER_FACING=1 ;;
+    *) USER_FACING=0 ;;
 esac
+
+LOG_DIR="${TTSMODE_STATE_DIR:-${HOME}/.claude/tts-mode}"
 
 give_up() {
     if (( USER_FACING )); then
         echo "tts-mode: cannot run, $1" >&2
         exit 1
+    fi
+    # warm only triggers the build. The say that follows it hits the same
+    # failure and reports it, so logging here would double every entry.
+    if [[ "$SUBCOMMAND" == "warm" ]]; then
+        exit 0
+    fi
+    if mkdir -p "$LOG_DIR" 2>/dev/null; then
+        printf '%s cannot run, %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "${LOG_DIR}/log" 2>/dev/null
     fi
     exit 0
 }
@@ -69,6 +83,13 @@ fi
 # Hook events must never fail the turn they were only meant to observe, so
 # their exit code is discarded. The user-facing commands are the opposite: if
 # `on` fails, /tts must not print success-shaped nothing while TTS stays off.
+# warm exists only to force the build-if-stale block above. The say wrapper
+# calls it before taking the playback lock, so a first-run compile does not
+# happen while every other session waits on that lock.
+if [[ "${1:-}" == "warm" ]]; then
+    exit 0
+fi
+
 if (( USER_FACING )); then
     exec "$BIN" "$@"
 fi

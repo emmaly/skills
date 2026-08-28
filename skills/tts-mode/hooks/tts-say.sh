@@ -31,31 +31,29 @@ if [[ -z "${TEXT//[[:space:]]/}" ]]; then
     exit 0
 fi
 
-# Build before taking the lock. The first call after a source change compiles,
-# and holding the lock across a build would make every other session wait on it.
-"${HERE}/run-ttsmode.sh" log "warming build" >/dev/null 2>&1 &
+(
+    # Compile first, inside the background job but before the lock. The first
+    # call after a source change builds, and doing that while holding the lock
+    # would make every other session queue behind a compile. Backgrounding this
+    # separately did not work: both jobs started at once and say built inside
+    # the lock anyway.
+    "${HERE}/run-ttsmode.sh" warm
 
-if command -v flock >/dev/null 2>&1; then
-    (
-        # Bounded wait. Without it, one player hung on a busy audio device holds
-        # this lock forever and every later line queues behind it. On timeout
-        # the line is dropped, but it is recorded first: a line that vanishes
-        # with nothing in the log is the failure the README promises cannot
-        # happen.
+    if command -v flock >/dev/null 2>&1; then
+        # Bounded wait. Without it, one player hung on a busy audio device
+        # holds the lock forever and every later line queues behind it. On
+        # timeout the line is dropped, but it is recorded first: a line that
+        # vanishes with nothing in the log is the failure the README rules out.
         if ! flock -w 90 9; then
-            "${HERE}/run-ttsmode.sh" log "dropped a line, waited 90s for the playback lock" >/dev/null 2>&1
+            "${HERE}/run-ttsmode.sh" log "dropped a line, waited 90s for the playback lock"
             exit 0
         fi
-        "${HERE}/run-ttsmode.sh" say "$TEXT"
-    ) 9>"$LOCK" >/dev/null 2>&1 &
-else
-    # flock is not in the macOS base system. Running unlocked risks two lines
-    # overlapping, which is better than total silence on a machine that meets
-    # every documented requirement.
-    (
-        "${HERE}/run-ttsmode.sh" log "flock not found, speaking without the queue"
-        "${HERE}/run-ttsmode.sh" say "$TEXT"
-    ) >/dev/null 2>&1 &
-fi
+    fi
+    # No flock, as on macOS: speak unlocked. Two lines may overlap, which beats
+    # total silence on a machine that meets every documented requirement. It is
+    # not logged, because it would be logged on every single line.
+
+    "${HERE}/run-ttsmode.sh" say "$TEXT"
+) 9>"$LOCK" >/dev/null 2>&1 &
 
 exit 0

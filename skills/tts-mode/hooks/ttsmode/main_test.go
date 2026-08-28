@@ -228,3 +228,76 @@ func TestSayJoinsAllArguments(t *testing.T) {
 		t.Fatalf("expected a key failure, got %q", logged)
 	}
 }
+
+// say joins every remaining argument into the spoken line, so scanning the
+// whole list for --session let a line that merely contained that word swallow
+// the next one and drop both.
+func TestSessionFlagOnlyLeading(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{
+		"CLAUDE_CODE_SESSION_ID": "sess",
+		"TTSMODE_STATE_DIR":      dir,
+		"TTSMODE_ENV_FILE":       filepath.Join(dir, "absent.env"),
+	})
+
+	var out bytes.Buffer
+	run([]string{"on"}, strings.NewReader(""), &out, &out, env)
+	out.Reset()
+
+	// The word appears mid-text. It must stay text.
+	run([]string{"say", "Fixed", "the", "--session", "flag", "parsing"}, strings.NewReader(""), &out, &out, env)
+
+	logged, err := os.ReadFile(filepath.Join(dir, "log"))
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if strings.Contains(string(logged), "TTS is off") {
+		t.Fatal("a --session inside the spoken text hijacked the session id")
+	}
+}
+
+// Leading --session still works, since the slash command relies on it.
+func TestSessionFlagStillWorksLeading(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{"TTSMODE_STATE_DIR": dir})
+	var out bytes.Buffer
+
+	run([]string{"on", "--session", "explicit"}, strings.NewReader(""), &out, &out, env)
+
+	if _, err := os.Stat(filepath.Join(dir, "sessions", "explicit")); err != nil {
+		t.Fatalf("leading --session stopped working: %v", err)
+	}
+}
+
+// Prune never walks the log, so without a cap it grows for the life of the
+// install.
+func TestLogIsCapped(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{"TTSMODE_STATE_DIR": dir})
+	logPath := filepath.Join(dir, "log")
+
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(logPath, bytes.Repeat([]byte("x"), maxLogBytes+1), 0o600); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+
+	var out bytes.Buffer
+	run([]string{"log", "after the cap"}, strings.NewReader(""), &out, &out, env)
+
+	info, err := os.Stat(logPath)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Size() > maxLogBytes {
+		t.Fatalf("log is %d bytes, cap is %d", info.Size(), maxLogBytes)
+	}
+	body, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(string(body), "after the cap") {
+		t.Fatal("the newest entry was lost")
+	}
+}

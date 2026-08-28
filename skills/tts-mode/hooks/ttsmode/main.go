@@ -131,18 +131,19 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	}
 }
 
-// takeSessionFlag pulls an optional --session out of the argument list. It
-// reports only what the flag said, empty when absent, so callers can tell an
-// explicit flag from the environment fallback. The hook needs that difference:
-// its documented order puts the flag ahead of the payload but the environment
-// behind it.
+// takeSessionFlag pulls an optional --session out of the front of the argument
+// list. It reports only what the flag said, empty when absent, so callers can
+// tell an explicit flag from the environment fallback. The hook needs that
+// difference: its documented order puts the flag ahead of the payload but the
+// environment behind it.
+//
+// Only the leading position is scanned. say joins every remaining argument
+// into the spoken line, so scanning the whole list let a line that merely
+// contained the word --session swallow the next word as a session id and drop
+// both, sending the rest to a session that was probably not enabled.
 func takeSessionFlag(args []string) (string, []string) {
-	for i := 0; i+1 < len(args); i++ {
-		if args[i] == "--session" {
-			trimmed := append([]string{}, args[:i]...)
-			trimmed = append(trimmed, args[i+2:]...)
-			return args[i+1], trimmed
-		}
+	if len(args) >= 2 && args[0] == "--session" {
+		return args[1], args[2:]
 	}
 	return "", args
 }
@@ -182,6 +183,11 @@ func homeDir(env func(string) string) string {
 	return home
 }
 
+// maxLogBytes caps the diagnostic log. Prune only walks the sessions
+// directory, so without a cap this file grows for the life of the install. A
+// quarter megabyte is thousands of failures, far more than anyone reads.
+const maxLogBytes = 256 << 10
+
 // logger appends to the store's log. Speech failures are invisible by design,
 // so there has to be somewhere to look when it goes quiet.
 func logger(store Store) func(string, ...any) {
@@ -189,7 +195,14 @@ func logger(store Store) func(string, ...any) {
 		if err := os.MkdirAll(store.Dir, 0o700); err != nil {
 			return
 		}
-		file, err := os.OpenFile(store.LogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		path := store.LogPath()
+		if info, err := os.Stat(path); err == nil && info.Size() > maxLogBytes {
+			// Start over rather than keep a tail. What matters when speech goes
+			// quiet is the most recent failure, and the newest entries land
+			// immediately after this.
+			_ = os.Truncate(path, 0)
+		}
+		file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 		if err != nil {
 			return
 		}
