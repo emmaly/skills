@@ -157,6 +157,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	// Saying so beats a bare exit 2: for the unattended subcommands the wrapper
 	// discards the exit code, so drift would be a silent no-op with nothing in
 	// the log, which is the outcome the user-facing split exists to prevent.
+	// Both, because neither alone reaches every caller: the wrapper sends the
+	// unattended subcommands to /dev/null, and the log is what the README
+	// tells the user to read when speech goes quiet.
+	logf("subcommand %q passed validation but has no handler", command)
 	fmt.Fprintf(stderr, "ttsmode: subcommand %q passed validation but has no handler\n", command)
 	return 2
 }

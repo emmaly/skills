@@ -37,6 +37,15 @@ HOME_DIR="${HOME:-}"
 # Empty when there is nowhere to log. give_up handles that by staying quiet.
 LOG_DIR="${TTSMODE_STATE_DIR:-${HOME_DIR:+${HOME_DIR}/.claude/tts-mode}}"
 
+# Blanked unless absolute, and blanked here rather than after the guard below,
+# because give_up runs on the guard's own failure path. Leaving it relative had
+# the refusal create the cwd-relative tree it had just refused and append to
+# it, following a symlink planted there. An empty value stays empty: the test
+# is false for "".
+if [[ "$LOG_DIR" != /* ]]; then
+    LOG_DIR=""
+fi
+
 give_up() {
     if (( USER_FACING )); then
         echo "tts-mode: cannot run, $1" >&2
