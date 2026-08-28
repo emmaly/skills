@@ -48,8 +48,14 @@ type hookPayload struct {
 // runHook decides whether to ask for spoken summaries, and returns the exit
 // code. It always returns 0. A hook that can fail a turn is worse than a hook
 // that silently does nothing.
-func runHook(stdin io.Reader, stdout io.Writer, store Store, env func(string) string, wrapperPath string) int {
-	session := sessionFromPayload(stdin)
+//
+// Session resolution order is the documented one: the --session flag passed as
+// override, then the session_id in the payload, then the environment.
+func runHook(stdin io.Reader, stdout io.Writer, store Store, env func(string) string, override, wrapperPath string) int {
+	session := override
+	if session == "" {
+		session = sessionFromPayload(stdin)
+	}
 	if session == "" {
 		session = env("CLAUDE_CODE_SESSION_ID")
 	}

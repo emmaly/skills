@@ -1,0 +1,4 @@
+# The helper is built to the user's cache on first use, never committed: a
+# checked-in binary would be platform-specific and would go stale against its
+# own source. `go build` without -o drops one here, so keep it out.
+/hooks/ttsmode/ttsmode

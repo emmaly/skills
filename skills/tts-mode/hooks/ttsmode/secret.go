@@ -24,9 +24,12 @@ func apiKey(env func(string) string, envFile string) (string, error) {
 		return value, nil
 	}
 
+	// No path prefix here: the *fs.PathError already renders as
+	// "open <path>: ...", and wrapping it again produced the path twice in
+	// every log line.
 	file, err := os.Open(envFile)
 	if err != nil {
-		return "", fmt.Errorf("open %s: %w", envFile, err)
+		return "", err
 	}
 	defer file.Close()
 
@@ -62,11 +65,30 @@ func splitEnvLine(line string) (name, value string, ok bool) {
 	}
 	name = strings.TrimSpace(name)
 	value = strings.TrimSpace(value)
-	if len(value) >= 2 {
-		first, last := value[0], value[len(value)-1]
-		if (first == '"' && last == '"') || (first == '\'' && last == '\'') {
-			value = value[1 : len(value)-1]
-		}
+
+	if quoted, ok := unquote(value); ok {
+		return name, quoted, true
+	}
+
+	// Unquoted only: strip a trailing comment. Without this, a line like
+	// `KEY=sk_abc  # main key` sent the comment as part of the header and the
+	// API answered 401, which logs identically to a genuinely wrong key.
+	// Inside quotes a hash is data, which is why this runs after unquote.
+	if hash := strings.Index(value, "#"); hash >= 0 {
+		value = strings.TrimSpace(value[:hash])
 	}
 	return name, value, true
+}
+
+// unquote removes one matching pair of surrounding quotes, reporting whether
+// the value was quoted at all.
+func unquote(value string) (string, bool) {
+	if len(value) < 2 {
+		return value, false
+	}
+	first, last := value[0], value[len(value)-1]
+	if (first == '"' && last == '"') || (first == '\'' && last == '\'') {
+		return value[1 : len(value)-1], true
+	}
+	return value, false
 }

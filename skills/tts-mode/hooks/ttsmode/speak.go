@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -113,14 +114,32 @@ func (e ElevenLabs) Speak(text string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	audio, err := readAllLimited(resp)
+	body, err = readAllLimited(resp)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("api returned %s", resp.Status)
+		// The body is already read, and on an error it holds the API's own
+		// explanation. Returning only the status turned a 422 about bad voice
+		// settings into a bare status line, which does not tell the reader
+		// what to change.
+		return nil, fmt.Errorf("api returned %s: %s", resp.Status, snippet(body))
 	}
-	return audio, nil
+	return body, nil
+}
+
+// snippet trims an error body down to something a log line can carry.
+func snippet(body []byte) string {
+	const max = 300
+	text := strings.TrimSpace(string(body))
+	if text == "" {
+		return "empty response body"
+	}
+	text = strings.Join(strings.Fields(text), " ")
+	if len(text) > max {
+		return text[:max] + "..."
+	}
+	return text
 }
 
 // readAllLimited caps the response so a wrong URL returning a large body
@@ -132,6 +151,12 @@ func readAllLimited(resp *http.Response) ([]byte, error) {
 	}
 	return body, nil
 }
+
+// playTimeout bounds a stuck player. A spoken line is seconds long, so a
+// minute is generous. Without it, a player hung on a busy audio device holds
+// the playback lock forever and every later line in every session waits behind
+// it, silently, with nothing in the log because nothing failed.
+const playTimeout = 60 * time.Second
 
 // CommandPlayer writes the audio to a temporary file and hands it to the first
 // player found on the system.
@@ -160,8 +185,17 @@ func (CommandPlayer) Play(audio []byte) error {
 		if err != nil {
 			continue
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), playTimeout)
+		defer cancel()
+
 		args := append(candidate[1:], file.Name())
-		return exec.Command(path, args...).Run()
+		if err := exec.CommandContext(ctx, path, args...).Run(); err != nil {
+			if ctx.Err() != nil {
+				return fmt.Errorf("%s timed out after %s", candidate[0], playTimeout)
+			}
+			return fmt.Errorf("%s: %w", candidate[0], err)
+		}
+		return nil
 	}
 	return fmt.Errorf("no audio player found, install mpv or ffplay")
 }

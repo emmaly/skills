@@ -15,7 +15,7 @@ func TestHookSilentWhenDisabled(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
 	var out bytes.Buffer
 
-	code := runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "/plugin/hooks/tts-say.sh")
+	code := runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "", "/plugin/hooks/tts-say.sh")
 
 	if code != 0 {
 		t.Fatalf("exit %d, want 0", code)
@@ -32,7 +32,7 @@ func TestHookEmitsInstructionWhenEnabled(t *testing.T) {
 	}
 	var out bytes.Buffer
 
-	code := runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "/plugin/hooks/tts-say.sh")
+	code := runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "", "/plugin/hooks/tts-say.sh")
 
 	if code != 0 {
 		t.Fatalf("exit %d, want 0", code)
@@ -57,7 +57,7 @@ func TestHookUsesGivenWrapperPath(t *testing.T) {
 	}
 	var out bytes.Buffer
 
-	runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "/somewhere/else/tts-say.sh")
+	runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "", "/somewhere/else/tts-say.sh")
 
 	if !strings.Contains(out.String(), "/somewhere/else/tts-say.sh") {
 		t.Fatal("instruction did not use the supplied wrapper path")
@@ -79,7 +79,7 @@ func TestHookFallsBackToEnvSession(t *testing.T) {
 	}
 	var out bytes.Buffer
 
-	runHook(strings.NewReader(`{}`), &out, store, env, "/plugin/hooks/tts-say.sh")
+	runHook(strings.NewReader(`{}`), &out, store, env, "", "/plugin/hooks/tts-say.sh")
 
 	if out.Len() == 0 {
 		t.Fatal("expected the instruction using the session id from the environment")
@@ -91,12 +91,28 @@ func TestHookSurvivesGarbagePayload(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
 	var out bytes.Buffer
 
-	code := runHook(strings.NewReader("not json at all"), &out, store, noEnv, "/plugin/hooks/tts-say.sh")
+	code := runHook(strings.NewReader("not json at all"), &out, store, noEnv, "", "/plugin/hooks/tts-say.sh")
 
 	if code != 0 {
 		t.Fatalf("exit %d, want 0", code)
 	}
 	if out.Len() != 0 {
 		t.Fatalf("wrote %q on a bad payload, want nothing", out.String())
+	}
+}
+
+// The documented order puts --session ahead of the payload. Before this, the
+// hook branch discarded the flag entirely and the doc comment was wrong.
+func TestHookPrefersOverrideOverPayload(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	if err := store.Enable("flagged"); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	var out bytes.Buffer
+
+	runHook(strings.NewReader(`{"session_id":"payload"}`), &out, store, noEnv, "flagged", "/plugin/hooks/tts-say.sh")
+
+	if out.Len() == 0 {
+		t.Fatal("the --session override was ignored in favour of the payload")
 	}
 }

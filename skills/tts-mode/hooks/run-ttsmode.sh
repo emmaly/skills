@@ -53,6 +53,14 @@ if (( needs_build )); then
     mv -f "$tmp" "$BIN"
 fi
 
-# The binary decides its own exit codes: non-zero only for a usage error.
-# Anything else it swallows on purpose, so passing the code through is safe.
-"$BIN" "$@" || exit 0
+# Hook events must never fail the turn they were only meant to observe, so
+# their exit code is discarded. The user-facing commands are the opposite: if
+# `on` fails, /tts must not print success-shaped nothing while TTS stays off.
+case "${1:-}" in
+    hook | prune)
+        "$BIN" "$@" || exit 0
+        ;;
+    *)
+        exec "$BIN" "$@"
+        ;;
+esac

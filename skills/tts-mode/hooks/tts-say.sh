@@ -11,15 +11,30 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOCK="${XDG_RUNTIME_DIR:-/tmp}/tts-mode.lock"
 
-if [[ $# -lt 1 || -z "${1//[[:space:]]/}" ]]; then
+# The lock path carries the user id. A fixed /tmp/tts-mode.lock is shared on a
+# multi-user host, where another user's file makes the redirect fail and speech
+# dies with nothing logged, and a symlink planted there gets truncated.
+LOCK_DIR="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+LOCK="${LOCK_DIR}/tts-mode-$(id -u).lock"
+
+# Text is joined rather than taken as "$1". The instruction shows it quoted,
+# but a model that drops the quotes would otherwise have its line truncated at
+# the first space with the rest silently discarded.
+TEXT="$*"
+
+if [[ -z "${TEXT//[[:space:]]/}" ]]; then
     exit 0
 fi
 
 (
-    flock 9
-    "${HERE}/run-ttsmode.sh" say "$1"
+    # Bounded wait. Without it, one player hung on a busy audio device holds
+    # this lock forever and every later line in every session queues behind it,
+    # silently. Ninety seconds is longer than the player's own timeout, so a
+    # normal slow line still gets its turn and only a truly stuck lock is
+    # abandoned.
+    flock -w 90 9 || exit 0
+    "${HERE}/run-ttsmode.sh" say "$TEXT"
 ) 9>"$LOCK" >/dev/null 2>&1 &
 
 exit 0

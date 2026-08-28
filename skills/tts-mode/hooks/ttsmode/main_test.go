@@ -83,10 +83,10 @@ func TestSessionFlagOverridesEnv(t *testing.T) {
 	var out bytes.Buffer
 	run([]string{"on", "--session", "explicit"}, strings.NewReader(""), &out, &out, env)
 
-	if _, err := os.Stat(filepath.Join(dir, "explicit")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "sessions", "explicit")); err != nil {
 		t.Fatalf("expected state for the flagged session: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "from-env")); err == nil {
+	if _, err := os.Stat(filepath.Join(dir, "sessions", "from-env")); err == nil {
 		t.Fatal("the environment session should not have been touched")
 	}
 }
@@ -127,5 +127,67 @@ func TestSayWithoutTextExitsNonZero(t *testing.T) {
 	var out bytes.Buffer
 	if code := run([]string{"say"}, strings.NewReader(""), &out, &out, envWith(nil)); code == 0 {
 		t.Fatal("say with no text should report a usage error")
+	}
+}
+
+// The off switch has to stop speech that is already requested. Instructions
+// are re-injected every turn, so after an off many stale copies remain in the
+// transcript; if say did not check state, those would keep speaking and
+// spending after the user turned it off.
+func TestSayIsIgnoredWhenDisabled(t *testing.T) {
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, "eleven.env")
+	if err := os.WriteFile(envFile, []byte("ELEVENLABS_API_KEY=would-be-used\n"), 0o600); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+	env := envWith(map[string]string{
+		"CLAUDE_CODE_SESSION_ID": "quiet",
+		"TTSMODE_STATE_DIR":      dir,
+		"TTSMODE_ENV_FILE":       envFile,
+	})
+
+	var out bytes.Buffer
+	if code := run([]string{"say", "should not speak"}, strings.NewReader(""), &out, &out, env); code != 0 {
+		t.Fatalf("say exit %d, want 0", code)
+	}
+
+	logged, err := os.ReadFile(filepath.Join(dir, "log"))
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(logged), "TTS is off") {
+		t.Fatalf("expected the log to record the refusal, got %q", logged)
+	}
+}
+
+// A model that drops the quotes must not have its line truncated at the first
+// space, silently losing everything after it.
+func TestSayJoinsAllArguments(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{
+		"CLAUDE_CODE_SESSION_ID": "loud",
+		"TTSMODE_STATE_DIR":      dir,
+		"TTSMODE_ENV_FILE":       filepath.Join(dir, "absent.env"),
+	})
+
+	var out bytes.Buffer
+	run([]string{"on"}, strings.NewReader(""), &out, &out, env)
+	out.Reset()
+
+	// No key is configured, so this stops at key resolution. What matters is
+	// that it got past the enabled check with the whole line intact, which the
+	// log records as a key failure rather than a refusal.
+	if code := run([]string{"say", "three", "word", "line"}, strings.NewReader(""), &out, &out, env); code != 0 {
+		t.Fatalf("say exit %d, want 0", code)
+	}
+	logged, err := os.ReadFile(filepath.Join(dir, "log"))
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if strings.Contains(string(logged), "TTS is off") {
+		t.Fatal("say was refused for a session that is on")
+	}
+	if !strings.Contains(string(logged), "no api key") {
+		t.Fatalf("expected a key failure, got %q", logged)
 	}
 }

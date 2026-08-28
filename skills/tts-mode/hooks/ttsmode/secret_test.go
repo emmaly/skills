@@ -93,3 +93,26 @@ func TestAPIKeyPlaceholderInEnvFallsThrough(t *testing.T) {
 		t.Fatalf("got %q, want real-key", key)
 	}
 }
+
+// A trailing comment on an unquoted value became part of the header and came
+// back as a 401, which looks exactly like a wrong key.
+func TestAPIKeyStripsInlineComment(t *testing.T) {
+	key, err := apiKey(noEnv, writeEnvFile(t, "ELEVENLABS_API_KEY=abc123  # main key\n"))
+	if err != nil {
+		t.Fatalf("apiKey: %v", err)
+	}
+	if key != "abc123" {
+		t.Fatalf("got %q, want abc123", key)
+	}
+}
+
+// Inside quotes a hash is data, not a comment.
+func TestAPIKeyKeepsHashInsideQuotes(t *testing.T) {
+	key, err := apiKey(noEnv, writeEnvFile(t, "ELEVENLABS_API_KEY=\"abc#123\"\n"))
+	if err != nil {
+		t.Fatalf("apiKey: %v", err)
+	}
+	if key != "abc#123" {
+		t.Fatalf("got %q, want abc#123", key)
+	}
+}

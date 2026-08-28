@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -16,22 +15,48 @@ import (
 // Per-session state rather than one global switch: enabling audio in the
 // terminal you are sitting at should not make an unrelated session in another
 // window start talking hours later.
+//
+// Session files live in a sessions/ subdirectory rather than in Dir itself, so
+// that the log Dir also holds can never be mistaken for a session, pruned as a
+// stale one, or deleted by an "off" for a session literally named "log".
 type Store struct {
 	Dir string
 }
 
-// ErrBadSession is returned for a session id that could address a file outside
-// Dir. The id arrives from a hook payload, which is not ours to trust.
+// ErrBadSession is returned for a session id that could address anything other
+// than one plain file inside the sessions directory. The id arrives from a
+// hook payload, which is not ours to trust.
 var ErrBadSession = errors.New("invalid session id")
 
+// sessionsDir keeps session files apart from anything else under Dir.
+func (s Store) sessionsDir() string {
+	return filepath.Join(s.Dir, "sessions")
+}
+
+// LogPath is where failures are recorded. It sits beside the sessions
+// directory rather than inside it, so pruning cannot delete the one file the
+// user is told to read when speech goes quiet.
+func (s Store) LogPath() string {
+	return filepath.Join(s.Dir, "log")
+}
+
+// path validates a session id and returns the file that represents it.
+//
+// The check is a whitelist in spirit: after cleaning, the id must still be
+// exactly one path element that is not a traversal. A blacklist of separators
+// missed "." entirely, which cleaned to the directory itself and turned
+// Disable into a recursive wipe of every other session.
 func (s Store) path(session string) (string, error) {
 	if session == "" {
 		return "", fmt.Errorf("%w: empty", ErrBadSession)
 	}
-	if strings.ContainsAny(session, `/\`) || strings.Contains(session, "..") {
+	if session != filepath.Base(session) || session == "." || session == ".." {
 		return "", fmt.Errorf("%w: %q", ErrBadSession, session)
 	}
-	return filepath.Join(s.Dir, session), nil
+	if filepath.IsAbs(session) || filepath.Clean(session) != session {
+		return "", fmt.Errorf("%w: %q", ErrBadSession, session)
+	}
+	return filepath.Join(s.sessionsDir(), session), nil
 }
 
 // Enable turns TTS on for a session. Calling it twice is not an error.
@@ -40,7 +65,7 @@ func (s Store) Enable(session string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
+	if err := os.MkdirAll(s.sessionsDir(), 0o700); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
 	stamp := time.Now().UTC().Format(time.RFC3339) + "\n"
@@ -69,15 +94,20 @@ func (s Store) Enabled(session string) bool {
 	if err != nil {
 		return false
 	}
-	_, err = os.Stat(target)
-	return err == nil
+	info, err := os.Stat(target)
+	if err != nil {
+		return false
+	}
+	// A directory named like a session is not an enabled session.
+	return info.Mode().IsRegular()
 }
 
-// Prune removes state files last modified more than age ago and reports how
+// Prune removes session files last modified more than age ago and reports how
 // many it removed. Sessions end without notice, so there is no shutdown path
 // to clean up from.
 func (s Store) Prune(age time.Duration, now time.Time) (int, error) {
-	entries, err := os.ReadDir(s.Dir)
+	dir := s.sessionsDir()
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, nil
@@ -96,7 +126,7 @@ func (s Store) Prune(age time.Duration, now time.Time) (int, error) {
 			continue
 		}
 		if info.ModTime().Before(cutoff) {
-			if err := os.Remove(filepath.Join(s.Dir, entry.Name())); err == nil {
+			if err := os.Remove(filepath.Join(dir, entry.Name())); err == nil {
 				removed++
 			}
 		}

@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -41,13 +42,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	}
 
 	command, rest := args[0], args[1:]
-	session, rest := takeSessionFlag(rest, env)
+	sessionFlag, rest := takeSessionFlag(rest)
+	session := sessionFlag
+	if session == "" {
+		session = env("CLAUDE_CODE_SESSION_ID")
+	}
 	store := Store{Dir: stateDir(env)}
-	logf := logger(store.Dir)
+	logf := logger(store)
 
 	switch command {
 	case "hook":
-		return runHook(stdin, stdout, store, env, wrapperPath(env))
+		return runHook(stdin, stdout, store, env, sessionFlag, wrapperPath(env))
 
 	case "on":
 		if err := store.Enable(session); err != nil {
@@ -78,12 +83,25 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 			fmt.Fprintln(stderr, `usage: ttsmode say "<text>"`)
 			return 2
 		}
+		// Speech is gated on the live state, not only on the instruction that
+		// asked for it. The instruction is re-injected every turn, so after an
+		// "off" many stale copies remain in the transcript and nothing
+		// counter-instructs them. Without this check, "off" would stop future
+		// requests but not the ones already in context, and the switch would
+		// not actually stop speech or spend.
+		if !store.Enabled(session) {
+			logf("say ignored: TTS is off for this session")
+			return 0
+		}
 		key, err := apiKey(env, envFilePath(env))
 		if err != nil {
 			logf("no api key: %v", err)
 			return 0
 		}
-		return runSay(rest[0], ElevenLabs{Key: key}, CommandPlayer{}, logf)
+		// Join rather than take the first argument. The instruction shows the
+		// text quoted, but an unquoted line would otherwise be truncated at
+		// the first space and the rest silently dropped.
+		return runSay(strings.Join(rest, " "), ElevenLabs{Key: key}, CommandPlayer{}, logf)
 
 	case "prune":
 		removed, err := store.Prune(pruneAge, time.Now())
@@ -102,9 +120,12 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	}
 }
 
-// takeSessionFlag pulls an optional --session out of the argument list and
-// falls back to the environment.
-func takeSessionFlag(args []string, env func(string) string) (string, []string) {
+// takeSessionFlag pulls an optional --session out of the argument list. It
+// reports only what the flag said, empty when absent, so callers can tell an
+// explicit flag from the environment fallback. The hook needs that difference:
+// its documented order puts the flag ahead of the payload but the environment
+// behind it.
+func takeSessionFlag(args []string) (string, []string) {
 	for i := 0; i+1 < len(args); i++ {
 		if args[i] == "--session" {
 			trimmed := append([]string{}, args[:i]...)
@@ -112,7 +133,7 @@ func takeSessionFlag(args []string, env func(string) string) (string, []string) 
 			return args[i+1], trimmed
 		}
 	}
-	return env("CLAUDE_CODE_SESSION_ID"), args
+	return "", args
 }
 
 func stateDir(env func(string) string) string {
@@ -150,14 +171,14 @@ func homeDir(env func(string) string) string {
 	return home
 }
 
-// logger appends to a log beside the state. Speech failures are invisible by
-// design, so there has to be somewhere to look when it goes quiet.
-func logger(dir string) func(string, ...any) {
+// logger appends to the store's log. Speech failures are invisible by design,
+// so there has to be somewhere to look when it goes quiet.
+func logger(store Store) func(string, ...any) {
 	return func(format string, args ...any) {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
+		if err := os.MkdirAll(store.Dir, 0o700); err != nil {
 			return
 		}
-		file, err := os.OpenFile(filepath.Join(dir, "log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		file, err := os.OpenFile(store.LogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 		if err != nil {
 			return
 		}

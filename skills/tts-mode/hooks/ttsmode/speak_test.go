@@ -138,3 +138,22 @@ func TestElevenLabsReportsHTTPError(t *testing.T) {
 		t.Fatal("expected an error for a 401")
 	}
 }
+
+// The API's own explanation of a failure has to reach the log. Returning only
+// the status turned a 422 about bad settings into a bare status line.
+func TestElevenLabsErrorIncludesBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write([]byte(`{"detail":"voice_settings.speed out of range"}`))
+	}))
+	defer server.Close()
+
+	client := ElevenLabs{Key: "k", BaseURL: server.URL, HTTP: server.Client()}
+	_, err := client.Speak("hello")
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !strings.Contains(err.Error(), "speed out of range") {
+		t.Fatalf("error lost the API detail: %v", err)
+	}
+}

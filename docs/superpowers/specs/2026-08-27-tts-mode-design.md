@@ -63,7 +63,14 @@ process spawned from it.
 
 ### `ttsmode say "<text>"`
 
-Renders the text and plays it.
+Checks that TTS is still on for the session, then renders the text and plays
+it.
+
+The state check is not redundant with the hook. The instruction is re-injected
+every turn, so after an `off` many stale copies remain in the transcript and
+nothing counter-instructs them. Without the check, `off` would stop future
+requests but not the ones already in context, and the switch would not actually
+stop speech or spend.
 
 1. Read `ELEVENLABS_API_KEY` from the environment, falling back to parsing
    `~/.secrets/elevenlabs.env`. The hook runs unattended, so it cannot rely on
@@ -78,8 +85,16 @@ closing line queue rather than talk over each other.
 
 ### State
 
-One file per session under `~/.claude/tts-mode/`, mode 0700 on the directory.
-The file holds the enable timestamp; presence means enabled.
+One file per session under `~/.claude/tts-mode/sessions/`, mode 0700 on the
+directories. The file holds the enable timestamp; presence means enabled. The
+log sits beside that directory at `~/.claude/tts-mode/log`, not inside it, so
+pruning can never delete the one file the user is told to read when speech goes
+quiet, and a session id of `log` cannot collide with it.
+
+Session ids are validated as exactly one path element that is not a traversal.
+A blacklist of separators is not enough: an id of `.` cleans to the directory
+itself, which makes `Enabled` report on for a session nobody enabled and turns
+`Disable` into a recursive wipe of every other session.
 
 A `SessionStart` hook prunes files older than seven days. Sessions end without
 notice, so cleanup cannot depend on a shutdown path.
