@@ -20,18 +20,18 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # multi-user host, where another user's file makes the redirect fail and speech
 # dies with nothing logged, and a symlink planted there gets truncated.
 #
-# XDG_RUNTIME_DIR is checked rather than trusted. systemd removes
-# /run/user/$UID when a user's last login session ends, while long-lived
-# processes such as tmux keep the now-dangling path in their environment. The
-# whole background job hangs off a redirect to this file, so a stale value
-# means the line disappears with nothing logged.
-for candidate in "${XDG_RUNTIME_DIR:-}" "${TMPDIR:-}" /tmp; do
-    if [[ -n "$candidate" && -d "$candidate" && -w "$candidate" ]]; then
-        LOCK_DIR="$candidate"
-        break
-    fi
-done
-LOCK="${LOCK_DIR:-/tmp}/tts-mode-$(id -u).lock"
+# The lock lives with the state, which is the one path every session of this
+# user already agrees on.
+#
+# Choosing it from the environment does not work. A desktop terminal has
+# XDG_RUNTIME_DIR and a cron job or docker exec does not, so the two would pick
+# different files, each take its own lock, and talk over each other on the one
+# audio device. That is the divergence serializing exists to prevent, and it is
+# why a fallback chain is the wrong shape here even though a stale
+# XDG_RUNTIME_DIR is a real problem.
+STATE_DIR="${TTSMODE_STATE_DIR:-${HOME:-/tmp}/.claude/tts-mode}"
+mkdir -p "$STATE_DIR" 2>/dev/null || STATE_DIR="/tmp"
+LOCK="${STATE_DIR}/lock"
 
 # Text is joined rather than taken as "$1". The instruction shows it quoted,
 # but a model that drops the quotes would otherwise have its line truncated at

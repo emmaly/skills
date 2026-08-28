@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 type fakeSynth struct {
@@ -189,5 +190,27 @@ func TestSayLeavesNormalTextAlone(t *testing.T) {
 
 	if synth.got != line {
 		t.Fatalf("got %q, want %q", synth.got, line)
+	}
+}
+
+// Truncation must not split a multi-byte character. Invalid UTF-8 is silently
+// replaced with U+FFFD during encoding, so the API would be billed to speak a
+// replacement character.
+func TestSayTruncatesOnRuneBoundary(t *testing.T) {
+	// 399 ASCII characters then a three-byte one, so a byte slice at 400 would
+	// land inside that character.
+	long := strings.Repeat("a", maxSpokenChars-1) + "é" + strings.Repeat("b", 50)
+
+	synth := &fakeSynth{audio: []byte("mp3")}
+	runSay(long, synth, &fakePlayer{}, discardf)
+
+	if !utf8.ValidString(synth.got) {
+		t.Fatalf("truncated text is not valid UTF-8: %q", synth.got)
+	}
+	if n := utf8.RuneCountInString(synth.got); n > maxSpokenChars {
+		t.Fatalf("sent %d runes, cap is %d", n, maxSpokenChars)
+	}
+	if !strings.HasSuffix(synth.got, "é") {
+		t.Fatalf("expected the boundary rune intact, got %q", synth.got[len(synth.got)-8:])
 	}
 }

@@ -70,11 +70,24 @@ trap 'give_up "unexpected error in the wrapper"' ERR
 [[ -d "$SRC_DIR" ]] || give_up "no source at ${SRC_DIR}"
 
 # Rebuild when the binary is missing or any source file is newer than it.
+# go.mod and go.sum count as source: bumping the Go directive or a dependency
+# changes the build without touching a .go file, and the cached binary would
+# otherwise keep running with no sign that it is stale.
 needs_build=0
 if [[ ! -x "$BIN" ]]; then
     needs_build=1
-elif [[ -n "$(find "$SRC_DIR" -name '*.go' -newer "$BIN" -print -quit 2>/dev/null)" ]]; then
+elif [[ -n "$(find "$SRC_DIR" \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -newer "$BIN" -print -quit 2>/dev/null)" ]]; then
     needs_build=1
+fi
+
+# The hook runs synchronously on every prompt, so it must never compile: the
+# first prompt after any source edit would block the turn on a full build, even
+# for a session where TTS is off and the hook will emit nothing at all. It uses
+# whatever binary exists and otherwise does nothing. The async SessionStart
+# prune is what keeps the cache warm.
+if (( needs_build )) && [[ "$SUBCOMMAND" == "hook" ]]; then
+    [[ -x "$BIN" ]] || exit 0
+    needs_build=0
 fi
 
 if (( needs_build )); then

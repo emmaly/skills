@@ -53,9 +53,14 @@ func runSay(text string, synth Synth, player Player, logf func(string, ...any)) 
 		logf("empty text, nothing to speak")
 		return 0
 	}
-	if len(text) > maxSpokenChars {
-		logf("text was %d characters, truncated to %d", len(text), maxSpokenChars)
-		text = strings.TrimSpace(text[:maxSpokenChars])
+	// Counted and cut in runes, not bytes. Slicing bytes at a fixed offset
+	// splits any multi-byte character that straddles it, and the invalid UTF-8
+	// that results is silently replaced with U+FFFD during encoding, so the
+	// API is billed to speak a replacement character. One accented name or
+	// emoji in an overlong line is enough to hit it.
+	if runes := []rune(text); len(runes) > maxSpokenChars {
+		logf("text was %d characters, truncated to %d", len(runes), maxSpokenChars)
+		text = strings.TrimSpace(string(runes[:maxSpokenChars]))
 	}
 
 	audio, err := synth.Speak(text)
