@@ -13,7 +13,7 @@ func TestEnableDisableRoundTrip(t *testing.T) {
 	if store.Enabled("abc") {
 		t.Fatal("a fresh session must start disabled")
 	}
-	if err := store.Enable("abc"); err != nil {
+	if err := store.Enable("abc", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	if !store.Enabled("abc") {
@@ -31,10 +31,10 @@ func TestEnableDisableRoundTrip(t *testing.T) {
 // saying /tts on when it is already on is not a mistake worth reporting.
 func TestEnableIsIdempotent(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("abc"); err != nil {
+	if err := store.Enable("abc", ""); err != nil {
 		t.Fatalf("first enable: %v", err)
 	}
-	if err := store.Enable("abc"); err != nil {
+	if err := store.Enable("abc", ""); err != nil {
 		t.Fatalf("second enable: %v", err)
 	}
 }
@@ -51,7 +51,7 @@ func TestDisableUnknownSession(t *testing.T) {
 // terminal silent is the whole reason state is per session.
 func TestSessionsAreIsolated(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("one"); err != nil {
+	if err := store.Enable("one", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	if store.Enabled("two") {
@@ -65,7 +65,7 @@ func TestSessionIDCannotEscapeDir(t *testing.T) {
 	dir := t.TempDir()
 	store := Store{Dir: dir}
 
-	if err := store.Enable("../escaped"); err == nil {
+	if err := store.Enable("../escaped", ""); err == nil {
 		t.Fatal("a traversing session id must be rejected")
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(dir), "escaped")); !os.IsNotExist(err) {
@@ -85,7 +85,7 @@ func TestSessionIDRejectsDirectoryAliases(t *testing.T) {
 	// sessions directory and never to the directory itself.
 	for _, session := range []string{".", "..", "./", "a/b", "/abs", "", "sub/../x"} {
 		t.Run(session, func(t *testing.T) {
-			if err := store.Enable(session); err == nil {
+			if err := store.Enable(session, ""); err == nil {
 				t.Fatalf("Enable(%q) must be rejected", session)
 			}
 			if err := store.Disable(session); err == nil {
@@ -102,7 +102,7 @@ func TestSessionIDRejectsDirectoryAliases(t *testing.T) {
 // "." must not take it down with it.
 func TestDisableDotDoesNotWipeOtherSessions(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("real"); err != nil {
+	if err := store.Enable("real", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 
@@ -119,7 +119,7 @@ func TestDisableDotDoesNotWipeOtherSessions(t *testing.T) {
 func TestPruneLeavesTheLogAlone(t *testing.T) {
 	dir := t.TempDir()
 	store := Store{Dir: dir}
-	if err := store.Enable("recent"); err != nil {
+	if err := store.Enable("recent", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	if err := os.WriteFile(store.LogPath(), []byte("old failure\n"), 0o600); err != nil {
@@ -159,10 +159,10 @@ func TestPruneRemovesOldKeepsNew(t *testing.T) {
 	dir := t.TempDir()
 	store := Store{Dir: dir}
 
-	if err := store.Enable("fresh"); err != nil {
+	if err := store.Enable("fresh", ""); err != nil {
 		t.Fatalf("enable fresh: %v", err)
 	}
-	if err := store.Enable("stale"); err != nil {
+	if err := store.Enable("stale", ""); err != nil {
 		t.Fatalf("enable stale: %v", err)
 	}
 
@@ -192,7 +192,7 @@ func TestPruneRemovesOldKeepsNew(t *testing.T) {
 // the file to make mtime a last-seen time instead.
 func TestEnabledRefreshesStaleSession(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("long-lived"); err != nil {
+	if err := store.Enable("long-lived", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 
@@ -221,5 +221,80 @@ func TestEnabledRefreshesStaleSession(t *testing.T) {
 	}
 	if removed != 0 {
 		t.Fatalf("prune removed %d live sessions", removed)
+	}
+}
+
+func TestInstructionsRoundTrip(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	if err := store.Enable("abc", "five words max, no file paths"); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	if got := store.Instructions("abc"); got != "five words max, no file paths" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+// Enabling with no instructions must not leave the previous session's text
+// behind, since "on" is also how someone clears them.
+func TestEnableReplacesInstructions(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	if err := store.Enable("abc", "be terse"); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	if err := store.Enable("abc", ""); err != nil {
+		t.Fatalf("re-enable: %v", err)
+	}
+	if got := store.Instructions("abc"); got != "" {
+		t.Fatalf("instructions survived a plain enable: %q", got)
+	}
+}
+
+// Multi-line text is stored verbatim, because the whole point is freeform.
+func TestInstructionsKeepLineBreaks(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	want := "one line only\nname the file you changed"
+	if err := store.Enable("abc", want); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	if got := store.Instructions("abc"); got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+// A state file written before instructions existed holds only a timestamp.
+func TestInstructionsOnLegacyStateFile(t *testing.T) {
+	dir := t.TempDir()
+	store := Store{Dir: dir}
+	if err := os.MkdirAll(filepath.Join(dir, "sessions"), 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	path := filepath.Join(dir, "sessions", "abc")
+	if err := os.WriteFile(path, []byte("2026-08-27T00:00:00Z\n"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if !store.Enabled("abc") {
+		t.Fatal("legacy file should still read as enabled")
+	}
+	if got := store.Instructions("abc"); got != "" {
+		t.Fatalf("got %q, want empty", got)
+	}
+}
+
+// The mtime refresh uses Chtimes, so it must not cost the instructions.
+func TestInstructionsSurviveRefresh(t *testing.T) {
+	dir := t.TempDir()
+	store := Store{Dir: dir}
+	if err := store.Enable("abc", "be terse"); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	old := time.Now().Add(-2 * refreshAfter)
+	if err := os.Chtimes(filepath.Join(dir, "sessions", "abc"), old, old); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+	if !store.Enabled("abc") {
+		t.Fatal("stale session should still be enabled")
+	}
+	if got := store.Instructions("abc"); got != "be terse" {
+		t.Fatalf("refresh lost the instructions: %q", got)
 	}
 }

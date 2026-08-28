@@ -448,7 +448,7 @@ func TestRelativeEnvFileIsRefusedWhenThereIsNoKey(t *testing.T) {
 		"TTSMODE_ENV_FILE":       ".secrets/elevenlabs.env",
 		"CLAUDE_CODE_SESSION_ID": "abc",
 	})
-	if err := (Store{Dir: dir}).Enable("abc"); err != nil {
+	if err := (Store{Dir: dir}).Enable("abc", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 
@@ -471,7 +471,7 @@ func TestRelativeEnvFileIsRefusedWhenThereIsNoKey(t *testing.T) {
 func TestKeyInEnvironmentSurvivesAnUnusableEnvFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(t.TempDir())
-	if err := (Store{Dir: dir}).Enable("abc"); err != nil {
+	if err := (Store{Dir: dir}).Enable("abc", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 

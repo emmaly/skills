@@ -4,9 +4,23 @@ Speaks short summaries of Claude's work aloud. Off by default.
 
 ## Use
 
-    /tts on       turn it on for this session
-    /tts off      turn it off
-    /tts          report the current state
+    /tts on              turn it on for this session
+    /tts off             turn it off
+    /tts                 report the current state and any instructions
+    /tts <request>       turn it on, shaped by what you asked for
+    /tts on <request>    the same, said explicitly
+
+A request is freeform. "keep it to five words", "one line per turn, and say
+which file you touched", "speak in Spanish". It is read by Claude, turned into
+instructions addressed to itself, and stored with the session; the command
+prints what it became so you can see whether it understood you.
+
+Those instructions take precedence over the defaults below, including the word
+and line counts, so asking for longer lines works. `/tts on` with no request
+clears them. `/tts off` clears everything.
+
+A lone word that nearly spells a subcommand is refused rather than taken as a
+request, so `/tts of` does not turn TTS on with "of" as its instruction.
 
 On means Claude speaks one line when it starts multi-step work and one at the
 end of each turn, capped at three lines a turn and fifteen words a line. Off
@@ -101,6 +115,7 @@ for a voice that talks while you work. Both fields come from
 ## Layout
 
     hooks/hooks.json        UserPromptSubmit injects, SessionStart prunes
+    hooks/ttsmode/control.go  parses what you typed after /tts
     hooks/run-ttsmode.sh    builds the binary on first use, then runs it
     hooks/tts-say.sh        backgrounds and serializes playback
     hooks/ttsmode/          the Go source

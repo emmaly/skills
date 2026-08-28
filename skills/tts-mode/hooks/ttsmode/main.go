@@ -54,7 +54,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	// do not depend on a state directory, and reporting "no HOME" for a
 	// misspelled subcommand would send the reader after the wrong problem.
 	switch command {
-	case "hook", "on", "off", "status", "say", "log", "prune":
+	case "hook", "on", "off", "status", "control", "set", "say", "log", "prune":
 	default:
 		fmt.Fprintf(stderr, "ttsmode: unknown subcommand %q\n", command)
 		return 2
@@ -86,7 +86,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		return runHook(stdin, stdout, store, env, sessionFlag, wrapperPath(env))
 
 	case "on":
-		if err := store.Enable(session); err != nil {
+		if err := store.Enable(session, ""); err != nil {
 			fmt.Fprintf(stderr, "ttsmode: %v\n", err)
 			return 1
 		}
@@ -104,10 +104,19 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	case "status":
 		if store.Enabled(session) {
 			fmt.Fprintln(stdout, "Spoken output is ON for this session.")
+			if extra := store.Instructions(session); extra != "" {
+				fmt.Fprintf(stdout, "\nInstructions for this session:\n\n%s\n", indent(extra))
+			}
 		} else {
 			fmt.Fprintln(stdout, "Spoken output is OFF for this session.")
 		}
 		return 0
+
+	case "control":
+		return runControl(stdin, stdout, stderr, store, session)
+
+	case "set":
+		return runSet(stdin, stdout, stderr, store, session)
 
 	case "say":
 		// Speech is gated on the live state, not only on the instruction that
