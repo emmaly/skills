@@ -27,6 +27,16 @@
         "name": "Emmaly",
         "email": "emmaly@emma.ly"
       }
+    },
+    {
+      "name": "tts-mode",
+      "description": "Speak short summaries of Claude's work aloud, toggled per session",
+      "version": "20260827001",
+      "source": "./skills/tts-mode",
+      "author": {
+        "name": "Emmaly",
+        "email": "emmaly@emma.ly"
+      }
     }
   ]
 }
