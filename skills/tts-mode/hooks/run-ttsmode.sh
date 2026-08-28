@@ -11,19 +11,6 @@ set -euo pipefail
 # This wrapper holds no logic beyond build-if-stale. Anything worth testing
 # belongs in the Go code, where it can be.
 
-# HOME is expanded below, under `set -u` and before the ERR trap is installed,
-# so an unset HOME would abort with a non-zero exit. Some systemd units and
-# container shells have no HOME, and for the UserPromptSubmit hook that is
-# exactly the "fail the turn it was only meant to observe" outcome this script
-# exists to avoid.
-HOME_DIR="${HOME:-/tmp}"
-
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
-SRC_DIR="${PLUGIN_ROOT}/hooks/ttsmode"
-CACHE_DIR="${XDG_CACHE_HOME:-${HOME_DIR}/.cache}/tts-mode"
-BIN="${CACHE_DIR}/ttsmode"
-
 # How a setup failure is reported depends on who asked.
 #
 # on/off/status are typed by a person, so /tts on printing nothing and exiting
@@ -40,7 +27,15 @@ case "$SUBCOMMAND" in
     *) USER_FACING=0 ;;
 esac
 
-LOG_DIR="${TTSMODE_STATE_DIR:-${HOME_DIR}/.claude/tts-mode}"
+# HOME is read with a default because it is expanded under `set -u`, and an
+# unset HOME would otherwise abort with a non-zero exit. Some systemd units and
+# container shells have no HOME, and for the UserPromptSubmit hook that is
+# exactly the "fail the turn it was only meant to observe" outcome this script
+# exists to avoid.
+HOME_DIR="${HOME:-}"
+
+# Empty when there is nowhere to log. give_up handles that by staying quiet.
+LOG_DIR="${TTSMODE_STATE_DIR:-${HOME_DIR:+${HOME_DIR}/.claude/tts-mode}}"
 
 give_up() {
     if (( USER_FACING )); then
@@ -55,8 +50,9 @@ give_up() {
     # Every step is allowed to fail. Under errexit an unwritable log, for
     # instance one left root-owned by a sudo run, would abort this function
     # before its exit 0 and make the hook fail loudly: the precise outcome
-    # give_up exists to prevent.
-    if mkdir -p "$LOG_DIR" 2>/dev/null; then
+    # give_up exists to prevent. An empty LOG_DIR fails the mkdir and skips
+    # the write, which is the intended behavior when HOME is unset.
+    if [[ -n "$LOG_DIR" ]] && mkdir -p "$LOG_DIR" 2>/dev/null; then
         printf '%s cannot run, %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" \
             >> "${LOG_DIR}/log" 2>/dev/null || true
     fi
@@ -66,6 +62,22 @@ give_up() {
 # Everything below runs under `set -e`, so any unguarded failure would exit
 # non-zero and read as a broken hook. Catch those too.
 trap 'give_up "unexpected error in the wrapper"' ERR
+
+# Refuse rather than fall back to /tmp. Deriving the cache from a fixed
+# world-writable path gives every user on the host the same predictable
+# location for a binary this script then executes: plant one there with an
+# mtime newer than the source and the staleness check below skips the rebuild
+# and runs it. Creating the directory is not a check, because mkdir -p
+# succeeds on a directory someone else already owns.
+if [[ -z "${XDG_CACHE_HOME:-}" && -z "$HOME_DIR" ]]; then
+    give_up "HOME is not set; set HOME or XDG_CACHE_HOME"
+fi
+
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+SRC_DIR="${PLUGIN_ROOT}/hooks/ttsmode"
+CACHE_DIR="${XDG_CACHE_HOME:-${HOME_DIR}/.cache}/tts-mode"
+BIN="${CACHE_DIR}/ttsmode"
 
 [[ -d "$SRC_DIR" ]] || give_up "no source at ${SRC_DIR}"
 
@@ -111,7 +123,7 @@ fi
 # warm exists only to force the build-if-stale block above. The say wrapper
 # calls it before taking the playback lock, so a first-run compile does not
 # happen while every other session waits on that lock.
-if [[ "${1:-}" == "warm" ]]; then
+if [[ "$SUBCOMMAND" == "warm" ]]; then
     exit 0
 fi
 

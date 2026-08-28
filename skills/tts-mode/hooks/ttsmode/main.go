@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const pruneAge = 7 * 24 * time.Hour
@@ -198,9 +199,20 @@ func logger(store Store) func(string, ...any) {
 		path := store.LogPath()
 		record := fmt.Sprintf("%s %s\n", time.Now().UTC().Format(time.RFC3339), fmt.Sprintf(format, args...))
 
+		// A record longer than the whole cap would leave the file above the
+		// limit however often it is truncated. say caps its own text, but log
+		// takes whatever the wrapper joined together.
+		if len(record) > maxLogBytes {
+			cut := maxLogBytes - 1
+			for cut > 0 && !utf8.RuneStart(record[cut]) {
+				cut--
+			}
+			record = record[:cut] + "\n"
+		}
+
 		// Measure the record against the cap, not just the file. Checking only
 		// the existing size let the file finish one whole record above the
-		// limit, and an oversized single record could exceed it outright.
+		// limit.
 		if info, err := os.Stat(path); err == nil && info.Size()+int64(len(record)) > maxLogBytes {
 			// Start over rather than keep a tail. What matters when speech goes
 			// quiet is the most recent failure, and it lands immediately below.

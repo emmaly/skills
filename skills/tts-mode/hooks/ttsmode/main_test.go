@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func envWith(pairs map[string]string) func(string) string {
@@ -325,5 +326,33 @@ func TestLogIsCappedAtExactLimit(t *testing.T) {
 	}
 	if info.Size() > maxLogBytes {
 		t.Fatalf("log is %d bytes, cap is %d", info.Size(), maxLogBytes)
+	}
+}
+
+// say caps its own text, but log takes whatever the wrapper joined together,
+// so a single record can be longer than the cap.
+func TestLogRecordLongerThanCap(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{"TTSMODE_STATE_DIR": dir})
+	logPath := filepath.Join(dir, "log")
+
+	var out bytes.Buffer
+	run([]string{"log", strings.Repeat("é", maxLogBytes)}, strings.NewReader(""), &out, &out, env)
+
+	info, err := os.Stat(logPath)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Size() > maxLogBytes {
+		t.Fatalf("log is %d bytes, cap is %d", info.Size(), maxLogBytes)
+	}
+	body, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	// Cutting mid-rune would leave the log invalid UTF-8 and unreadable in a
+	// terminal, which defeats the one thing it is for.
+	if !utf8.Valid(body) {
+		t.Fatal("truncation cut a rune in half")
 	}
 }
