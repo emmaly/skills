@@ -1,13 +1,8 @@
 # skills
 
-Emmaly's Claude Code plugin marketplace. Three plugins live here, and nothing
-else does.
-
-This repo was `emmaly/emmaly` until 2026-09-01, when it was renamed and the
-GitHub profile README moved to a fresh
-[emmaly/emmaly](https://github.com/emmaly/emmaly). If you added the marketplace
-under the old name, remove and re-add it: the rename redirect was replaced by
-the profile repo, which carries no `marketplace.json`.
+Emmaly's Claude Code plugin marketplace. Three plugins: conventions
+(`emmaly-skills`), API documentation research (`api-explorer`), and spoken
+summaries (`tts-mode`).
 
 ## Install
 
@@ -19,53 +14,133 @@ the profile repo, which carries no `marketplace.json`.
 The marketplace is named `emmaly`, so plugins are addressed as `<plugin>@emmaly`
 whatever the repo is called. Install the other two the same way, by name.
 
-## The plugins
+## emmaly-skills
 
-### emmaly-skills
+Nine skills covering how Emmaly works and what the code should look like.
 
-Collaboration style, preferred stack, and per-domain conventions. Nine skills:
+### standards
 
-| Skill | Covers |
-| --- | --- |
-| `standards` | Working style, Go-only language rule, preferred stack, deployment targets |
-| `plain-language` | How every human-readable output is written, from chat to log lines |
-| `go` | Modules, error wrapping, sentinel errors, `log/slog`, layout, testing |
-| `svelte` | SvelteKit and Svelte 5 runes, Tailwind, DaisyUI, TypeScript, Vitest |
-| `git-workflow` | Branch names, conventional commits, PR bodies, issue workflow |
-| `integration` | The local review gate before any push, and the CodeRabbit PR gate |
-| `project-setup` | `.secrets/`, `.gitignore`, docs layout, containers, CI |
-| `home-assistant` | REST and WebSocket access patterns, token auth, common calls |
-| `doc-review` | Reviewing docs for accuracy, completeness, and consistency |
+Working style, language choice, stack, and deployment targets. The rule that
+does the most work is `## Language choice`: Go for everything that executes,
+including one-off scripts and throwaway analysis, with shell allowed only as
+thin glue. It is written as a rule rather than a preference because the
+preference wording kept losing to habit. Also covers the `~/.secrets/*.env` and
+`envwith` pattern, the preferred stack (Go 1.26+, SvelteKit and Svelte 5 runes,
+Tailwind, DaisyUI, podman, cloudflared, SSE before WebSocket), and the
+self-hosted k3s cluster as the default deployment target.
 
-Two of those load without being asked. A `SessionStart` hook prints the bodies
-of `standards` and `plain-language` into every session, including after a
-compact, because a style rule that only fires when someone remembers it never
-fires on the output that needs it.
+Loaded into every session by a hook, so it rarely needs invoking.
 
-One mechanical gate backs the prose: `hooks/plaincheck`, a Go binary that
-rejects em and en dashes in prose writes and in commit messages. It checks that
-one rule and no others, since it is the only one with no false positives. It
-reads just the text being written, skips backticks and fenced blocks in prose,
-and stays silent otherwise. On a machine with no Go toolchain it exits 0 with a
-note on stderr rather than blocking work.
+### plain-language
 
-### api-explorer
+How every human-readable output is written: chat replies, commit messages, PR
+bodies, READMEs, comments, docstrings, UI copy, error messages, log lines.
+Three rules carry most of it. Answer in the first sentence, keep a chat reply
+to six lines, and use no em dashes. The rest names the specific tells, from
+banned words and sentence shapes to narrative drama and personified code, plus
+a precedence section for when a required output shape conflicts with it.
 
-Research a third-party API before writing a client for it. Discovers the
-documentation, fetches it, caches it, and normalizes it into a manifest the
-implementation can be written against. It generates no client code, on purpose.
+Also loaded into every session, for the reason in the skill itself: a style rule
+that only fires when someone remembers to invoke it never fires on the output
+that needs it most.
 
-### tts-mode
+### go
+
+Module and `go.mod` conventions, error wrapping, sentinel errors, `log/slog`
+logging, project layout, preferred libraries (chi, gorilla, sqlite),
+containerization, and testing.
+
+### svelte
+
+SvelteKit with Svelte 5 runes (`$state`, `$derived`, `$effect`), Tailwind,
+DaisyUI, TypeScript over JavaScript, static builds served by a Go binary, and
+Vitest.
+
+### git-workflow
+
+Branch naming, conventional commits, PR descriptions, and the GitHub issue
+workflow.
+
+### integration
+
+The path from finished code to a merged PR. A local review gate is mandatory
+before a PR is marked ready for review or pushed to when it is not a draft, and
+that review is Claude's built-in `code-review` skill at high effort. CodeRabbit
+reviews only the ready PR, as the final gate before merge, because its
+5 reviews/hour limit is shared across PR reviews, CLI runs, and manual triggers.
+Iteration happens in drafts, which cost nothing against that limit.
+
+### project-setup
+
+Scaffolding a new project: the `.secrets/` convention, `.gitignore`, the
+README, PRD, AGENTS.md and CLAUDE.md documentation layout, Dockerfile and
+containerization, and CI.
+
+### home-assistant
+
+REST and WebSocket access patterns against a Home Assistant instance, Bearer
+token auth, a Go WebSocket example, and the common calls for states, services,
+dashboards, logs, and HACS.
+
+### doc-review
+
+Reviewing a project's documentation for accuracy, completeness, and
+consistency. It gathers findings first, then walks them past you one at a time
+rather than rewriting anything unasked.
+
+### The hooks behind them
+
+A `SessionStart` hook prints the bodies of `standards` and `plain-language` into
+every session, including after a compact. `hooks/emit-skill-body.sh` takes a
+skill directory and a heading, so adding a third always-on skill is a line of
+config rather than another script.
+
+`hooks/plaincheck` is the only mechanical gate. It is a Go binary that rejects
+em and en dashes on `Write`, `Edit`, and `MultiEdit`, and on `git commit` run
+through Bash. It checks that one rule and nothing else, because it is the only
+rule with no false positives: a word-list check would fire on the ban list
+itself, on quoted tool output, and on every legitimate term of art. It reads
+only the text being written, so editing an old document does not block unrelated
+work, and it skips backticks and fenced blocks in prose, which is the escape
+hatch for quoting a dash. On a machine with no Go toolchain it exits 0 with a
+note on stderr rather than blocking the work.
+
+## api-explorer
+
+Research a third-party API before writing a client for it. It runs before any
+implementation skill and generates no client code, on purpose.
+
+Given an API to integrate with, it discovers the documentation, fetches it,
+caches the raw artifacts, and normalizes them into a manifest holding auth,
+conventions, types, endpoints, and the dependency graph between them. The
+implementation is then written against the manifest.
+
+Everything lands in `~/.cache/api-explorer/`, shared across projects, one
+directory per API. Raw fetches are kept as timestamped snapshots next to the
+manifest, previous manifests are archived rather than overwritten, and a filtered
+manifest can be saved per scope when only part of a large API matters.
+
+## tts-mode
 
 Speaks short summaries of Claude's work aloud through ElevenLabs. Off by
-default, toggled per session with `/tts on`, `/tts off`, and `/tts` to report
-state. When on, Claude speaks one line at the start of multi-step work and one
-at the end of a turn, capped at three lines a turn and fifteen words a line.
+default.
 
-Needs an ElevenLabs API key in `~/.secrets/elevenlabs.env` and either `mpv` or
-`ffplay` on `PATH`. Billing is per character, so a three-line turn costs roughly
-300 characters. See `tts-mode/README.md` for the environment variables, the cost
-math, and why the spoken line is passed on stdin.
+```
+/tts on       turn it on for this session
+/tts off      turn it off
+/tts          report the current state
+```
+
+On means one spoken line when Claude starts multi-step work and one at the end
+of a turn, capped at three lines a turn and fifteen words a line. Off means the
+instruction is never injected, so no summary is even requested. The switch is
+per session, so enabling it in one terminal leaves the others silent, and
+background jobs never speak.
+
+It needs an ElevenLabs API key in `~/.secrets/elevenlabs.env` and either `mpv`
+or `ffplay` on `PATH`. Billing is per character, so a three-line turn costs
+roughly 300 characters. `tts-mode/README.md` has the environment variables, the
+cost math, and why the spoken line is passed on stdin instead of as an argument.
 
 ## Layout
 
@@ -79,7 +154,7 @@ docs/superpowers/                 plans and specs
 
 Each plugin carries its own `.claude-plugin/plugin.json` and its own version.
 The two Go helpers are built into the user's cache on first use, so no compiled
-binary is ever committed.
+binary is ever committed here.
 
 ## Working on a plugin
 
@@ -109,4 +184,4 @@ restart the session so the hooks re-register. Verify by asserting the exact new
 version directory exists under `~/.claude/plugins/cache/emmaly/`.
 
 The full procedure, and the state of each decision behind these skills, is in
-`emmaly-skills/NEXT.md`. Start there.
+`emmaly-skills/NEXT.md`.
