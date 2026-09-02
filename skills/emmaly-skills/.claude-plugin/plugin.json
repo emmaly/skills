@@ -6,8 +6,8 @@
     "name": "Emmaly",
     "email": "emmaly@emma.ly"
   },
-  "homepage": "https://github.com/emmaly/emmaly",
-  "repository": "https://github.com/emmaly/emmaly",
+  "homepage": "https://github.com/emmaly/skills",
+  "repository": "https://github.com/emmaly/skills",
   "license": "MIT",
   "keywords": ["skills", "workflows", "productivity", "standards", "collaboration", "go", "svelte", "home-assistant"]
 }

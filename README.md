@@ -1,20 +1,64 @@
-## Hi, I'm Emmaly
+# emmaly/skills
 
-Automation and integration, mostly in Go. Paid to write software since 1996, and
-writing Go since early 2010, which makes me the third biggest fan. A lot of that
-turns into Go client libraries for other people's REST APIs. I enjoy it more than
-most people expect.
+A Claude Code plugin marketplace. Three plugins, all installed from this repo.
 
-The rest of it wanders: Home Assistant components, Twitch tooling, TinyGo on a
-micro:bit, a kernel module for a Logitech receiver I got annoyed at, a Toki Pona
-dictionary. Most of the home automation is there to make the house cozier. I care
-about accessibility, and I'm opinionated about it.
+The profile README that used to live here moved to
+[emmaly/emmaly](https://github.com/emmaly/emmaly) on 2026-09-01, so this repo
+holds nothing but the plugins.
 
-Most of these repos are experiments. I learn things by building them, so plenty
-of this is unfinished on purpose, and a few I use every day. One does nothing at
-all.
+## Install
 
-[![Website](https://img.shields.io/badge/-emma.ly-000?style=flat-square&logo=safari&logoColor=white)](https://emma.ly)
-[![LinkedIn](https://img.shields.io/badge/-LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://linkedin.com/in/emmaly-)
-[![Email](https://img.shields.io/badge/-emmaly@emma.ly-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:emmaly@emma.ly)
-[![Twitch](https://img.shields.io/badge/-Twitch-9146FF?style=flat-square&logo=twitch&logoColor=white)](https://sorceressemmaly.com)
+```
+/plugin marketplace add emmaly/skills
+/plugin install emmaly-skills@emmaly
+```
+
+The marketplace is named `emmaly`, so plugins are addressed as
+`<plugin>@emmaly` regardless of the repo name. If you added the marketplace
+before the rename, remove and re-add it: GitHub's redirect from the old name
+was replaced by the profile repo, which carries no `marketplace.json`.
+
+## Plugins
+
+| Plugin | What it does |
+| --- | --- |
+| `emmaly-skills` | Collaboration style, preferred stack, and conventions for Go, Svelte, git, integration, project setup, Home Assistant, docs review, and plain language. Two of its skills load into every session through a `SessionStart` hook. |
+| `api-explorer` | Discovers, fetches, caches, and normalizes third-party API documentation before anything is implemented against it. Research only, and it writes no client code. |
+| `tts-mode` | Speaks short summaries of Claude's work aloud through ElevenLabs, toggled per session with `/tts`. Off by default. |
+
+Each plugin has its own version and its own manifest. `emmaly-skills` and
+`tts-mode` carry Go helpers that their hook wrappers build into the user's
+cache on first use, so a compiled binary is never committed here.
+
+## Layout
+
+```
+.claude-plugin/marketplace.json   the marketplace, listing all three plugins
+skills/emmaly-skills/             conventions, plus the plaincheck hook
+skills/api-explorer/              API documentation research
+skills/tts-mode/                  spoken summaries, plus the ttsmode hook
+docs/                             TODO list and design records
+```
+
+Each plugin directory holds its own `README.md` or `NEXT.md` where it has one.
+Start at `skills/emmaly-skills/NEXT.md` for the state of that plugin and for
+the release procedure, which is easy to get wrong: the version string in the
+manifests is what invalidates the installed cache, and a skill edit without a
+bump never loads.
+
+## Working on the plugins
+
+Iterate without releasing:
+
+```
+claude --plugin-dir ./skills/emmaly-skills
+```
+
+Run the Go tests where they live, one module per plugin:
+
+```
+cd skills/emmaly-skills/hooks/plaincheck && go test ./...
+cd skills/tts-mode/hooks/ttsmode && go test ./...
+```
+
+Open work is listed in `docs/TODO.md`.
