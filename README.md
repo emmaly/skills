@@ -34,14 +34,14 @@ cache on first use, so a compiled binary is never committed here.
 
 ```
 .claude-plugin/marketplace.json   the marketplace, listing all three plugins
-skills/emmaly-skills/             conventions, plus the plaincheck hook
-skills/api-explorer/              API documentation research
-skills/tts-mode/                  spoken summaries, plus the ttsmode hook
+emmaly-skills/             conventions, plus the plaincheck hook
+api-explorer/              API documentation research
+tts-mode/                  spoken summaries, plus the ttsmode hook
 docs/                             TODO list and design records
 ```
 
 Each plugin directory holds its own `README.md` or `NEXT.md` where it has one.
-Start at `skills/emmaly-skills/NEXT.md` for the state of that plugin and for
+Start at `emmaly-skills/NEXT.md` for the state of that plugin and for
 the release procedure, which is easy to get wrong: the version string in the
 manifests is what invalidates the installed cache, and a skill edit without a
 bump never loads.
@@ -51,14 +51,14 @@ bump never loads.
 Iterate without releasing:
 
 ```
-claude --plugin-dir ./skills/emmaly-skills
+claude --plugin-dir ./emmaly-skills
 ```
 
 Run the Go tests where they live, one module per plugin:
 
 ```
-cd skills/emmaly-skills/hooks/plaincheck && go test ./...
-cd skills/tts-mode/hooks/ttsmode && go test ./...
+cd emmaly-skills/hooks/plaincheck && go test ./...
+cd tts-mode/hooks/ttsmode && go test ./...
 ```
 
 Open work is listed in `docs/TODO.md`.

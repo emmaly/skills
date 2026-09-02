@@ -22,7 +22,7 @@ These were settled with the user before design and are not open:
 | State scope | Per session |
 | Spoken content | Final response plus progress on multi-step work |
 | Voice | Zoe, `XdflFrQO8wbGpWMNZHFr` |
-| Placement | New plugin, `skills/tts-mode/` |
+| Placement | New plugin, `tts-mode/` |
 | plaincheck | Applies to spoken summaries, no exemption |
 | Progress trigger | Start of a multi-step task, plus the end |
 | Git | Feature branch and commits, no push |
@@ -176,7 +176,7 @@ ElevenLabs or opens an audio device.
 
 ## Files
 
-New plugin at `skills/tts-mode/`:
+New plugin at `tts-mode/`:
 
     .claude-plugin/plugin.json
     commands/tts.md

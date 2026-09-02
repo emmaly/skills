@@ -149,13 +149,13 @@ argument is named in the rule.
 
 ## Releasing a change (do not skip)
 
-The plugin is **not** served live from `~/Projects/emmaly`. Installing copies the
+The plugin is **not** served live from `~/Projects/skills`. Installing copies the
 tree into a version-keyed cache at
 `~/.claude/plugins/cache/emmaly/emmaly-skills/<version>/`, and that copy is what
 loads. The version string is the refresh trigger:
 
 1. Bump `version` in **both** `.claude-plugin/marketplace.json` and
-   `skills/emmaly-skills/.claude-plugin/plugin.json` (format `YYYYMMDDNNN`).
+   `emmaly-skills/.claude-plugin/plugin.json` (format `YYYYMMDDNNN`).
 2. `/plugin marketplace update emmaly`
 3. `/plugin update emmaly-skills@emmaly`
 4. Restart the session. SessionStart hooks are registered at launch.
@@ -166,11 +166,11 @@ version out of the manifest rather than typing it, or this check goes stale on
 the next bump and starts passing against the previous release:
 
 ```sh
-v=$(jq -r .version ~/Projects/emmaly/skills/emmaly-skills/.claude-plugin/plugin.json)
+v=$(jq -r .version ~/Projects/skills/emmaly-skills/.claude-plugin/plugin.json)
 test -d ~/.claude/plugins/cache/emmaly/emmaly-skills/"$v" && echo "ok: $v"
 ```
 
-Both `.claude-plugin/marketplace.json` and `skills/emmaly-skills/.claude-plugin/plugin.json`
+Both `.claude-plugin/marketplace.json` and `emmaly-skills/.claude-plugin/plugin.json`
 declare a version, and this procedure bumps them together. Which one the resolver
 actually reads is unconfirmed. In the official marketplace the entry-level
 `version` is optional (14 of 284 entries set it). Keeping them in lockstep is
@@ -182,7 +182,7 @@ no visible symptom.
 bumping the version, so the cache stayed on `20260415001` and none of it ever
 loaded. If a skill edit seems to have no effect, check the cache directory before
 debugging anything else. For iterating without a release, run
-`claude --plugin-dir ./skills/emmaly-skills`.
+`claude --plugin-dir ./emmaly-skills`.
 
 ## To do
 
