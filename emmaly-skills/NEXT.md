@@ -1,5 +1,12 @@
 # Next: emmaly-skills
 
+Status as of 2026-09-03: `standards` gained the parked August work: "Emmaly
+(she/her)", the SaaS-integration project shape, a four-level exposure ladder
+for the cluster (internal, LAN, tailnet, public) with public gated on asking
+every time, the admission that Kubernetes work needs `~/Projects/kube` cloned,
+and the public-repo boundary. `project-setup` gained the documentation quality
+bar and split PRDs. Released as `20260903001`.
+
 Status as of 2026-08-25: `integration` rewritten to keep CodeRabbit under its
 5 reviews/hour limit. The mandatory gate now applies before marking a PR ready
 for review or pushing to a non-draft PR, and is Claude's built-in `code-review`
@@ -245,5 +252,5 @@ debugging anything else. For iterating without a release, run
   default and carries the shape (project-repo manifests, `ghcr.io/emmaly/*`
   images, Longhorn storage) and the exposure ladder (MetalLB for LAN, the
   Tailscale operator for the tailnet, `route.sh` + Ingress for public). Revisit
-  once the skill exists,
-  so the standards can point at it instead of at `~/Projects/kube` directly.
+  once the skill exists, so the standards can point at it instead of at
+  `~/Projects/kube` directly.
