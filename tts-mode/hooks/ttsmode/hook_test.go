@@ -6,6 +6,7 @@ import (
 	"testing"
 )
 
+// noEnv is an environment with nothing set.
 func noEnv(string) string { return "" }
 
 // The load-bearing test. When TTS is off the hook must emit nothing at all, so
@@ -25,6 +26,8 @@ func TestHookSilentWhenDisabled(t *testing.T) {
 	}
 }
 
+// An enabled session gets the brief, naming the say wrapper, the voice
+// command, and the rules that matter most.
 func TestHookEmitsInstructionWhenEnabled(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
 	if err := store.Enable("abc", ""); err != nil {

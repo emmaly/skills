@@ -6,6 +6,8 @@ import (
 	"unicode/utf8"
 )
 
+// Short sentences pack into pieces that each end on a sentence and stay
+// within the target, and nothing is lost in the split.
 func TestSpeakableSplitsOnSentences(t *testing.T) {
 	text := strings.Repeat("This sentence is about forty characters long. ", 8)
 	chunks := speakable(text, discardf)
@@ -25,6 +27,7 @@ func TestSpeakableSplitsOnSentences(t *testing.T) {
 	}
 }
 
+// With no sentence terminators, splits land only on word boundaries.
 func TestSpeakableNeverCutsInsideAWord(t *testing.T) {
 	// One long sentence with no terminator, so only word boundaries can split.
 	text := strings.Repeat("alpha beta gamma delta ", 80)
@@ -39,6 +42,8 @@ func TestSpeakableNeverCutsInsideAWord(t *testing.T) {
 	}
 }
 
+// Text over maxSpokenChars is cut to the cap at a word boundary, and the cut
+// is logged.
 func TestSpeakableCapsAtWordBoundary(t *testing.T) {
 	text := strings.Repeat("word ", maxSpokenChars)
 	var logged string
@@ -60,6 +65,7 @@ func TestSpeakableCapsAtWordBoundary(t *testing.T) {
 	}
 }
 
+// The cap counts runes, so a multi-byte character is never split.
 func TestSpeakableKeepsMultibyteRunesIntact(t *testing.T) {
 	text := strings.Repeat("é", maxSpokenChars+50)
 	for _, c := range speakable(text, discardf) {
@@ -69,6 +75,7 @@ func TestSpeakableKeepsMultibyteRunesIntact(t *testing.T) {
 	}
 }
 
+// Whitespace-only text yields no pieces at all.
 func TestSpeakableEmpty(t *testing.T) {
 	if got := speakable("  \n\t ", discardf); got != nil {
 		t.Fatalf("expected nil, got %q", got)

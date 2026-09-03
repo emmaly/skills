@@ -9,7 +9,7 @@ import (
 func control(t *testing.T, dir, session, raw string) (int, string, string) {
 	t.Helper()
 	var out, errOut bytes.Buffer
-	code := runControl(strings.NewReader(raw), &out, &errOut, Store{Dir: dir}, session)
+	code := runControl(strings.NewReader(raw), &out, &errOut, Store{Dir: dir}, session, noEnv)
 	return code, out.String(), errOut.String()
 }
 

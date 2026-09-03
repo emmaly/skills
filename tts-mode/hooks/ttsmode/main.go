@@ -40,10 +40,14 @@ import (
 
 const pruneAge = 7 * 24 * time.Hour
 
+// main hands the real process streams and environment to run and exits with
+// whatever it returns.
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, os.Getenv))
 }
 
+// run dispatches one subcommand and returns the exit code. Every stream and
+// the environment are parameters so tests can drive it without a process.
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(string) string) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: ttsmode hook|on|off|status|control|set|voice|say|failures|log|prune")
@@ -134,7 +138,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		return 0
 
 	case "control":
-		return runControl(stdin, stdout, stderr, store, session)
+		return runControl(stdin, stdout, stderr, store, session, env)
 
 	case "set":
 		return runSet(stdin, stdout, stderr, store, session)

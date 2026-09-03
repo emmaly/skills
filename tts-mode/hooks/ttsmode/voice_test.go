@@ -11,6 +11,7 @@ import (
 	"testing"
 )
 
+// SetVoice stores the id, enables the session, and an empty id clears it.
 func TestVoiceRoundTrip(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
 	if err := store.SetVoice("abc", "5N1BjZ10t6GcJUhZCP40"); err != nil {
@@ -201,6 +202,8 @@ func TestVoiceSubcommandRejectsEmpty(t *testing.T) {
 	}
 }
 
+// Precedence is the session's choice, then TTSMODE_VOICE_ID, then the
+// default, and an unusable env id falls back with a warning.
 func TestResolveVoiceOrder(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
 	vars := map[string]string{}
@@ -246,6 +249,26 @@ func TestStatusReportsEffectiveVoice(t *testing.T) {
 	}
 }
 
+// A status routed through /tts sees the real environment, so an
+// install-wide voice is reported rather than the built-in default.
+func TestControlStatusSeesGlobalVoice(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{"TTSMODE_VOICE_ID": "GlobalVoice0000000001"})
+	var out, errOut bytes.Buffer
+	if code := runControl(strings.NewReader("on"), &out, &errOut, Store{Dir: dir}, "s1", env); code != 0 {
+		t.Fatalf("on: %s", errOut.String())
+	}
+	out.Reset()
+	if code := runControl(strings.NewReader("status"), &out, &errOut, Store{Dir: dir}, "s1", env); code != 0 {
+		t.Fatalf("status: %s", errOut.String())
+	}
+	if !strings.Contains(out.String(), "Voice: GlobalVoice0000000001 (TTSMODE_VOICE_ID)") {
+		t.Fatalf("global voice not reported through control:\n%s", out.String())
+	}
+}
+
+// "/tts voice <id>" stores the id, status reports it, and "voice default"
+// clears it.
 func TestControlVoice(t *testing.T) {
 	dir := t.TempDir()
 	code, out, errOut := control(t, dir, "s1", "voice 5N1BjZ10t6GcJUhZCP40")
@@ -295,6 +318,7 @@ func TestControlVoiceProseIsARequest(t *testing.T) {
 	}
 }
 
+// A Voice on the client replaces the default in the request path.
 func TestSpeakUsesGivenVoice(t *testing.T) {
 	var gotPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -76,6 +76,9 @@ type speakRequest struct {
 	Settings voiceSettings `json:"voice_settings"`
 }
 
+// Speak posts one piece of text to the text-to-speech endpoint and returns
+// the audio bytes. A non-200 response is an error carrying the API's own
+// explanation, since that is what says which setting to change.
 func (e ElevenLabs) Speak(text string) ([]byte, error) {
 	base := e.BaseURL
 	if base == "" {
@@ -167,6 +170,8 @@ const playTimeout = 60 * time.Second
 // player found on the system.
 type CommandPlayer struct{}
 
+// Play writes the audio to a temporary file and plays it with mpv, or ffplay
+// when mpv is missing or fails, each bounded by playTimeout.
 func (CommandPlayer) Play(audio []byte) error {
 	file, err := os.CreateTemp("", "ttsmode-*.mp3")
 	if err != nil {
