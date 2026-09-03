@@ -146,6 +146,48 @@ func TestConcurrentEnableAndSetVoiceLoseNothing(t *testing.T) {
 	}
 }
 
+// Disable holds the same lock, so an off cannot land between an update's
+// read and its write. After the pair, the session is either off (the voice
+// change ran first), on with the voice and no instructions (the off ran
+// first and the voice change re-enabled a clean session), or on with both.
+// It is never on without the voice, which is what an off landing inside
+// the update produced.
+func TestConcurrentDisableIsNotUndone(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	for i := 0; i < 50; i++ {
+		if err := store.Enable("abc", "be terse"); err != nil {
+			t.Fatalf("enable: %v", err)
+		}
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			if err := store.SetVoice("abc", "5N1BjZ10t6GcJUhZCP40"); err != nil {
+				t.Errorf("set voice: %v", err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if err := store.Disable("abc"); err != nil {
+				t.Errorf("disable: %v", err)
+			}
+		}()
+		wg.Wait()
+		if !store.Enabled("abc") {
+			continue
+		}
+		if got := store.Voice("abc"); got != "5N1BjZ10t6GcJUhZCP40" {
+			t.Fatalf("round %d: on without the voice: %q", i, got)
+		}
+		if got := store.Instructions("abc"); got != "be terse" && got != "" {
+			t.Fatalf("round %d: unexpected instructions: %q", i, got)
+		}
+		if err := store.Disable("abc"); err != nil {
+			t.Fatalf("disable: %v", err)
+		}
+	}
+}
+
 // An empty argument is a usage error, not a way to turn a session on.
 func TestVoiceSubcommandRejectsEmpty(t *testing.T) {
 	dir := t.TempDir()

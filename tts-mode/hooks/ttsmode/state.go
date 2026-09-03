@@ -107,7 +107,18 @@ func (s Store) update(session string, change func(voice, instructions string) (s
 	if _, err := s.path(session); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(s.sessionsDir(), 0o700); err != nil {
+	return s.locked(func() error {
+		voice, instructions := s.read(session)
+		voice, instructions = change(voice, instructions)
+		return s.write(session, voice, instructions)
+	})
+}
+
+// locked runs fn holding the store's one lock. Disable takes it too, so an
+// off cannot land between an update's read and its write and be undone by
+// the write.
+func (s Store) locked(fn func() error) error {
+	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
 	// The lock file sits beside the sessions directory, not in it, where a
@@ -121,10 +132,7 @@ func (s Store) update(session string, change func(voice, instructions string) (s
 		return fmt.Errorf("lock state: %w", err)
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
-
-	voice, instructions := s.read(session)
-	voice, instructions = change(voice, instructions)
-	return s.write(session, voice, instructions)
+	return fn()
 }
 
 // write lays the file out as one header line, then the instructions. The
@@ -217,10 +225,12 @@ func (s Store) Disable(session string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove state: %w", err)
-	}
-	return nil
+	return s.locked(func() error {
+		if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove state: %w", err)
+		}
+		return nil
+	})
 }
 
 // refreshAfter is how stale a session file may get before Enabled touches it.
