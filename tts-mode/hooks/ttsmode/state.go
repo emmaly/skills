@@ -144,13 +144,15 @@ func (s Store) read(session string) (voice, instructions string) {
 	if !found {
 		return "", ""
 	}
+	// The line is a header only when it parses as an id. An instruction that
+	// happens to start with "voice=" is otherwise prose, and consuming it
+	// would silently drop the first line someone wrote.
 	if strings.HasPrefix(rest, voicePrefix) {
 		line, after, _ := strings.Cut(rest, "\n")
-		voice = strings.TrimSpace(strings.TrimPrefix(line, voicePrefix))
-		if !validVoiceID(voice) {
-			voice = ""
+		if id := strings.TrimSpace(strings.TrimPrefix(line, voicePrefix)); validVoiceID(id) {
+			voice = id
+			rest = after
 		}
-		rest = after
 	}
 	return voice, strings.TrimSpace(rest)
 }

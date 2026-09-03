@@ -88,6 +88,22 @@ func TestVoiceOnLegacyStateFile(t *testing.T) {
 	}
 }
 
+// An instruction that starts with the header prefix but is not an id is
+// prose, and must not be eaten as a header.
+func TestInstructionsStartingWithVoicePrefixAreKept(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	want := "voice=warm and slow\nsay which file"
+	if err := store.Enable("abc", want); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	if got := store.Voice("abc"); got != "" {
+		t.Fatalf("prose read as a voice: %q", got)
+	}
+	if got := store.Instructions("abc"); got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
 func TestControlVoice(t *testing.T) {
 	dir := t.TempDir()
 	code, out, errOut := control(t, dir, "s1", "voice 5N1BjZ10t6GcJUhZCP40")
