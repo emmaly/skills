@@ -115,3 +115,24 @@ func TestTakeFailuresBoundsOutput(t *testing.T) {
 		t.Fatalf("got %d lines: %q", len(got), got)
 	}
 }
+
+// Each piece is a separate clip, and the API leaves almost no silence at the
+// end of one, so the drainer has to put the gap in itself.
+func TestQueuePausesBetweenPieces(t *testing.T) {
+	q := Queue{Dir: filepath.Join(t.TempDir(), "queue")}
+	player := &stampPlayer{}
+	runSayQueued(pad("one.")+" "+pad("two."), slowSynth{}, player, q, discardf)
+	if len(player.at) != 2 {
+		t.Fatalf("played %d pieces", len(player.at))
+	}
+	if gap := player.at[1].Sub(player.at[0]); gap < pieceGap {
+		t.Fatalf("gap between pieces was %v, want at least %v", gap, pieceGap)
+	}
+}
+
+type stampPlayer struct{ at []time.Time }
+
+func (p *stampPlayer) Play([]byte) error {
+	p.at = append(p.at, time.Now())
+	return nil
+}

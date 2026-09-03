@@ -107,8 +107,8 @@ The say wrapper returns at once. It prints any failure an earlier line hit,
 then detaches a job that splits the text into pieces at sentence ends (about
 220 characters each), synthesizes them three at a time, and drops them in a
 queue under `~/.claude/tts-mode/queue`. Whoever holds the player lock plays
-tickets in the order they were requested, one piece at a time, waiting for a
-piece that is still being synthesized. The first piece plays while the rest
+tickets in the order they were requested, one piece at a time with a short
+pause between clips, waiting for a piece that is still being synthesized. The first piece plays while the rest
 are still in flight, and two sessions never talk over each other. A piece
 that never arrives is abandoned after 45 seconds so a crashed job cannot
 wedge the queue.
