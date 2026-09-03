@@ -249,6 +249,22 @@ func TestStatusReportsEffectiveVoice(t *testing.T) {
 	}
 }
 
+// "voice default" clears only the session's choice. With TTSMODE_VOICE_ID
+// set, what speaks next is the install-wide voice, and the message says so.
+func TestVoiceDefaultReportsEffectiveVoice(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{"CLAUDE_CODE_SESSION_ID": "s", "TTSMODE_STATE_DIR": dir, "TTSMODE_VOICE_ID": "GlobalVoice0000000001"})
+	var out bytes.Buffer
+	run([]string{"voice", "SessionVoice000000001"}, strings.NewReader(""), &out, &out, env)
+	out.Reset()
+	if code := run([]string{"voice", "default"}, strings.NewReader(""), &out, &out, env); code != 0 {
+		t.Fatalf("exit %d: %s", code, out.String())
+	}
+	if !strings.Contains(out.String(), "using voice GlobalVoice0000000001 (TTSMODE_VOICE_ID)") {
+		t.Fatalf("message does not name the effective voice: %q", out.String())
+	}
+}
+
 // A status routed through /tts sees the real environment, so an
 // install-wide voice is reported rather than the built-in default.
 func TestControlStatusSeesGlobalVoice(t *testing.T) {
@@ -291,7 +307,7 @@ func TestControlVoice(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, errOut)
 	}
-	if !strings.Contains(out, "default voice") {
+	if !strings.Contains(out, "using voice "+defaultVoiceID+" (default)") {
 		t.Fatalf("got %q", out)
 	}
 	if got := (Store{Dir: dir}).Voice("s1"); got != "" {

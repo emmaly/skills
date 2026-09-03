@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// control runs runControl for one typed argument with an empty environment
+// and returns the exit code, stdout, and stderr.
 func control(t *testing.T, dir, session, raw string) (int, string, string) {
 	t.Helper()
 	var out, errOut bytes.Buffer
@@ -13,6 +15,7 @@ func control(t *testing.T, dir, session, raw string) (int, string, string) {
 	return code, out.String(), errOut.String()
 }
 
+// on, off, status, and an empty argument route to their subcommands.
 func TestControlPlainSubcommands(t *testing.T) {
 	// One directory for the whole table: an "on" in one row has to still be
 	// visible to the "status" in the next.
@@ -94,6 +97,7 @@ func TestControlKeepsRealInstructions(t *testing.T) {
 	}
 }
 
+// off and status take no trailing text.
 func TestControlRejectsTrailingTextOnOffAndStatus(t *testing.T) {
 	for _, raw := range []string{"off now please", "status of things"} {
 		code, _, errOut := control(t, t.TempDir(), "s1", raw)
@@ -106,6 +110,7 @@ func TestControlRejectsTrailingTextOnOffAndStatus(t *testing.T) {
 	}
 }
 
+// A request over maxInstructionBytes is refused rather than stored.
 func TestControlRejectsOverlongInstructions(t *testing.T) {
 	code, _, errOut := control(t, t.TempDir(), "s1", strings.Repeat("x", maxInstructionBytes+1))
 	if code == 0 {
@@ -116,6 +121,7 @@ func TestControlRejectsOverlongInstructions(t *testing.T) {
 	}
 }
 
+// set stores the instructions and turns the session on.
 func TestSetStoresAndEnables(t *testing.T) {
 	dir := t.TempDir()
 	var out, errOut bytes.Buffer
@@ -136,6 +142,7 @@ func TestSetStoresAndEnables(t *testing.T) {
 	}
 }
 
+// set with nothing on stdin is an error, not a way to clear instructions.
 func TestSetRejectsEmpty(t *testing.T) {
 	var out, errOut bytes.Buffer
 	if code := runSet(strings.NewReader("  \n "), &out, &errOut, Store{Dir: t.TempDir()}, "s1"); code == 0 {

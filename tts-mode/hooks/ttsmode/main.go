@@ -152,11 +152,13 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 			fmt.Fprintf(stderr, "ttsmode: %v\n", err)
 			return 1
 		}
-		if voice == "" {
-			fmt.Fprintln(stdout, "Spoken output is ON for this session, using the default voice.")
-		} else {
-			fmt.Fprintf(stdout, "Spoken output is ON for this session, using voice %s.\n", voice)
+		// Report what will speak, not what was cleared. After "default" with
+		// TTSMODE_VOICE_ID set, the install-wide voice is the one in effect.
+		effective, source, warning := resolveVoice(store, session, env)
+		if warning != "" {
+			fmt.Fprintf(stdout, "Warning: %s\n", warning)
 		}
+		fmt.Fprintf(stdout, "Spoken output is ON for this session, using voice %s (%s).\n", effective, source)
 		return 0
 
 	case "say":
