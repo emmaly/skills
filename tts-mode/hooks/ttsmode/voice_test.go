@@ -255,13 +255,21 @@ func TestVoiceDefaultReportsEffectiveVoice(t *testing.T) {
 	dir := t.TempDir()
 	env := envWith(map[string]string{"CLAUDE_CODE_SESSION_ID": "s", "TTSMODE_STATE_DIR": dir, "TTSMODE_VOICE_ID": "GlobalVoice0000000001"})
 	var out bytes.Buffer
-	run([]string{"voice", "SessionVoice000000001"}, strings.NewReader(""), &out, &out, env)
+	if code := run([]string{"voice", "SessionVoice000000001"}, strings.NewReader(""), &out, &out, env); code != 0 {
+		t.Fatalf("set session voice: exit %d: %s", code, out.String())
+	}
+	if got := (Store{Dir: dir}).Voice("s"); got != "SessionVoice000000001" {
+		t.Fatalf("session voice not stored: %q", got)
+	}
 	out.Reset()
 	if code := run([]string{"voice", "default"}, strings.NewReader(""), &out, &out, env); code != 0 {
 		t.Fatalf("exit %d: %s", code, out.String())
 	}
 	if !strings.Contains(out.String(), "using voice GlobalVoice0000000001 (TTSMODE_VOICE_ID)") {
 		t.Fatalf("message does not name the effective voice: %q", out.String())
+	}
+	if got := (Store{Dir: dir}).Voice("s"); got != "" {
+		t.Fatalf("session voice not cleared: %q", got)
 	}
 }
 
