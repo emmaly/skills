@@ -124,9 +124,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 			if warning != "" {
 				fmt.Fprintf(stdout, "Warning: %s\n", warning)
 			}
-			if source != "default" {
-				fmt.Fprintf(stdout, "Voice: %s (%s)\n", voice, source)
-			}
+			fmt.Fprintf(stdout, "Voice: %s (%s)\n", voice, source)
 			if extra := store.Instructions(session); extra != "" {
 				fmt.Fprintf(stdout, "\nInstructions for this session:\n\n%s\n", indent(extra))
 			}

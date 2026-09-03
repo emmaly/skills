@@ -66,7 +66,7 @@ restating it:
   is letters and digits only, the command refuses anything else, and the
   quotes keep the shell from reading pasted text as source:
 
-  ```
+  ```sh
   bash "${CLAUDE_PLUGIN_ROOT}/hooks/run-ttsmode.sh" voice '<id>'
   ```
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -80,8 +81,9 @@ var ErrBadVoice = errors.New("invalid voice id")
 // not an instruction, and clearing it on every "on" would have a person who
 // picked a voice and then asked for shorter lines lose the voice.
 func (s Store) Enable(session, instructions string) error {
-	voice, _ := s.read(session)
-	return s.write(session, voice, instructions)
+	return s.update(session, func(voice, _ string) (string, string) {
+		return voice, instructions
+	})
 }
 
 // SetVoice records a voice for the session and turns TTS on. An empty id
@@ -90,7 +92,38 @@ func (s Store) SetVoice(session, voice string) error {
 	if voice != "" && !validVoiceID(voice) {
 		return fmt.Errorf("%w: %q", ErrBadVoice, voice)
 	}
-	_, instructions := s.read(session)
+	return s.update(session, func(_, instructions string) (string, string) {
+		return voice, instructions
+	})
+}
+
+// update applies a change to a session's voice and instructions under a
+// lock. Each of Enable and SetVoice keeps the half it does not own, so two
+// of them running at once, say the rewrite step's set racing a voice change
+// the brief asked for, would each read the old file and the later rename
+// would discard the other's change. The lock serializes the read and the
+// write; writeAtomic still keeps concurrent readers from seeing a torn file.
+func (s Store) update(session string, change func(voice, instructions string) (string, string)) error {
+	if _, err := s.path(session); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(s.sessionsDir(), 0o700); err != nil {
+		return fmt.Errorf("create state dir: %w", err)
+	}
+	// The lock file sits beside the sessions directory, not in it, where a
+	// file named like a session would read as an enabled one.
+	lock, err := os.OpenFile(filepath.Join(s.Dir, "state.lock"), os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return fmt.Errorf("open state lock: %w", err)
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("lock state: %w", err)
+	}
+	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+
+	voice, instructions := s.read(session)
+	voice, instructions = change(voice, instructions)
 	return s.write(session, voice, instructions)
 }
 

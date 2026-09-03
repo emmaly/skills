@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -108,6 +109,39 @@ func TestInstructionsStartingWithVoicePrefixAreKept(t *testing.T) {
 		}
 		if got := store.Instructions("abc"); got != want {
 			t.Fatalf("set voice changed the instructions: %q", got)
+		}
+	}
+}
+
+// Enable and SetVoice each keep the half they do not own. Run at once, both
+// halves must survive; without the lock one of them read the old file and
+// its rename discarded the other's change.
+func TestConcurrentEnableAndSetVoiceLoseNothing(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	for i := 0; i < 50; i++ {
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			if err := store.Enable("abc", "be terse"); err != nil {
+				t.Errorf("enable: %v", err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if err := store.SetVoice("abc", "5N1BjZ10t6GcJUhZCP40"); err != nil {
+				t.Errorf("set voice: %v", err)
+			}
+		}()
+		wg.Wait()
+		if got := store.Voice("abc"); got != "5N1BjZ10t6GcJUhZCP40" {
+			t.Fatalf("round %d lost the voice: %q", i, got)
+		}
+		if got := store.Instructions("abc"); got != "be terse" {
+			t.Fatalf("round %d lost the instructions: %q", i, got)
+		}
+		if err := store.Disable("abc"); err != nil {
+			t.Fatalf("disable: %v", err)
 		}
 	}
 }
