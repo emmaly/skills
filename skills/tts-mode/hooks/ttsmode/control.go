@@ -20,8 +20,29 @@ const maxInstructionBytes = 2000
 // into a plausible-looking instruction.
 const rewriteMarker = "NEEDS_INSTRUCTION"
 
+// currentMarker introduces the instructions already stored for this session,
+// when there are any.
+//
+// set replaces wholesale, so a follow-up request phrased the natural way,
+// "also mention which file", would otherwise drop everything set before it.
+// Sending the current text along lets the rewrite step merge instead.
+const currentMarker = "CURRENT_INSTRUCTIONS"
+
 // keywords are the exact subcommands a person can type.
 var keywords = []string{"on", "off", "status"}
+
+// longestKeyword bounds how long a word can be and still read as a typo.
+// Derived rather than written down, so adding a keyword cannot leave the cap
+// too low to measure it.
+var longestKeyword = func() int {
+	longest := 0
+	for _, keyword := range keywords {
+		if len(keyword) > longest {
+			longest = len(keyword)
+		}
+	}
+	return longest
+}()
 
 // runControl handles the raw argument string a person typed after /tts.
 //
@@ -60,6 +81,14 @@ func runControl(stdin io.Reader, stdout, stderr io.Writer, store Store, session 
 		if rest == "" {
 			return run([]string{"on"}, strings.NewReader(""), stdout, stderr, envFor(store, session))
 		}
+		// Turn it on before handing the request off to be rewritten. The person
+		// said "on" plainly, so that half of the request should survive a rewrite
+		// step that never runs. Existing instructions are carried through, so
+		// enabling here cannot wipe them.
+		if err := store.Enable(session, store.Instructions(session)); err != nil {
+			fmt.Fprintf(stderr, "ttsmode: %v\n", err)
+			return 1
+		}
 		text = rest
 	default:
 		// A lone word that nearly spells a subcommand is a typo, not a
@@ -75,6 +104,9 @@ func runControl(stdin io.Reader, stdout, stderr io.Writer, store Store, session 
 	// storing it raw, so a vague request becomes something the agent can
 	// actually follow.
 	fmt.Fprintf(stdout, "%s\n%s\n", rewriteMarker, text)
+	if current := store.Instructions(session); current != "" {
+		fmt.Fprintf(stdout, "\n%s\n%s\n", currentMarker, current)
+	}
 	return 0
 }
 
@@ -125,8 +157,13 @@ func splitFirstWord(text string) (string, string) {
 // Only single words are considered, and only short ones. A phrase is a
 // request even if it starts oddly, and "terse" is a plausible instruction
 // while "statu" is not.
+//
+// The cap is one over the longest keyword so that a single insertion into the
+// longest one is still measured. At a flat six it was not: "statuss" is seven
+// characters, so every insertion typo of "status" was waved through as a
+// request while deletions like "statu" were caught.
 func nearestKeyword(text string) string {
-	if strings.ContainsAny(text, " \t\n\r") || len(text) > 6 {
+	if strings.ContainsAny(text, " \t\n\r") || len(text) > longestKeyword+1 {
 		return ""
 	}
 	word := strings.ToLower(text)
@@ -135,10 +172,14 @@ func nearestKeyword(text string) string {
 			return ""
 		}
 	}
-	// Prefixes before edit distance. "of" is one character short of "off" and
-	// one substitution from "on", and the person was reaching for off.
+	// Abbreviations before edit distance. "of" is one character short of "off"
+	// and one substitution from "on", and the person was reaching for off.
+	//
+	// Only the abbreviation direction. Also matching a word that merely starts
+	// with a keyword refused real one-word instructions: "once", "only", "one",
+	// and "offer" all begin with one and all mean what they say.
 	for _, keyword := range keywords {
-		if strings.HasPrefix(keyword, word) || strings.HasPrefix(word, keyword) {
+		if strings.HasPrefix(keyword, word) {
 			return keyword
 		}
 	}

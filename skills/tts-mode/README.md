@@ -15,9 +15,14 @@ which file you touched", "speak in Spanish". It is read by Claude, turned into
 instructions addressed to itself, and stored with the session; the command
 prints what it became so you can see whether it understood you.
 
-Those instructions take precedence over the defaults below, including the word
-and line counts, so asking for longer lines works. `/tts on` with no request
-clears them. `/tts off` clears everything.
+Those instructions take precedence over the style and length defaults below,
+including the word and line counts, so asking for longer lines works. They do
+not override the rule against speaking secrets, credentials, or full filesystem
+paths, which holds however a request is worded.
+
+A second request is merged with what is already stored, so `/tts also say which
+file` keeps the earlier wording rather than replacing it. `/tts on` with no
+request clears the instructions. `/tts off` clears everything.
 
 A lone word that nearly spells a subcommand is refused rather than taken as a
 request, so `/tts of` does not turn TTS on with "of" as its instruction.

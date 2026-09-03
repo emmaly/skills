@@ -38,40 +38,17 @@ type Player interface {
 	Play(audio []byte) error
 }
 
-// maxSpokenChars bounds one line. The fifteen-word guidance lives in the
-// injected instruction, which is guidance a model can ignore; billing is per
-// character, so a pasted stack trace would be synthesized and charged in full.
-// This makes the README's cost estimate a property of the code instead. Four
-// hundred characters is roughly four times the intended line.
-const maxSpokenChars = 400
-
-// runSay renders one line and plays it. It always returns 0: speech is a
+// runSay renders text and plays it in this process, piece by piece, with no
+// queue. The queued path in queue.go is what the wrapper uses; this is the
+// fallback and the unit under test. It always returns 0: speech is a
 // convenience, and no failure of it should fail the turn that asked for it.
 func runSay(text string, synth Synth, player Player, logf func(string, ...any)) int {
-	text = strings.TrimSpace(text)
-	if text == "" {
+	chunks := speakable(text, logf)
+	if len(chunks) == 0 {
 		logf("empty text, nothing to speak")
 		return 0
 	}
-	// Counted and cut in runes, not bytes. Slicing bytes at a fixed offset
-	// splits any multi-byte character that straddles it, and the invalid UTF-8
-	// that results is silently replaced with U+FFFD during encoding, so the
-	// API is billed to speak a replacement character. One accented name or
-	// emoji in an overlong line is enough to hit it.
-	if runes := []rune(text); len(runes) > maxSpokenChars {
-		logf("text was %d characters, truncated to %d", len(runes), maxSpokenChars)
-		text = strings.TrimSpace(string(runes[:maxSpokenChars]))
-	}
-
-	audio, err := synth.Speak(text)
-	if err != nil {
-		logf("synthesis failed: %v", err)
-		return 0
-	}
-	if err := player.Play(audio); err != nil {
-		logf("playback failed: %v", err)
-	}
-	return 0
+	return playDirect(chunks, synth, player, logf)
 }
 
 // ElevenLabs is the real Synth.
@@ -203,7 +180,7 @@ func (CommandPlayer) Play(audio []byte) error {
 	// would have worked is never tried.
 	var lastErr error
 	for _, candidate := range [][]string{
-		{"mpv", "--no-video", "--really-quiet"},
+		{"mpv", "--no-video", "--no-terminal", "--really-quiet"},
 		{"ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"},
 	} {
 		path, err := exec.LookPath(candidate[0])

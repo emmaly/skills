@@ -8,6 +8,9 @@
 //	on      Enable for this session.
 //	off     Disable for this session.
 //	status  Report the current state.
+//	control Handle the raw argument a person typed after /tts, deciding between
+//	        a subcommand, a typo of one, and a freeform request.
+//	set     Store an already-rewritten instruction and enable this session.
 //	say     Render one line and play it.
 //	log     Append a message to the log, for the shell wrapper's use.
 //	prune   Remove state files from sessions that ended long ago.
@@ -40,7 +43,7 @@ func main() {
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(string) string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: ttsmode hook|on|off|status|say|prune")
+		fmt.Fprintln(stderr, "usage: ttsmode hook|on|off|status|control|set|say|log|prune")
 		return 2
 	}
 
@@ -66,13 +69,14 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 
 	dir, err := stateDir(env)
 	if err != nil {
-		// Same split as the shell wrappers. on/off/status are typed by a
-		// person, so silence would read as success while TTS stayed off.
+		// Same split as the shell wrappers. on, off, status, control, and set are
+		// typed by a person, so silence would read as success while TTS stayed
+		// off.
 		// Everything else runs unattended and must not fail the turn, and
 		// there is nowhere to log because the log lives in the directory we
 		// just failed to resolve.
 		switch command {
-		case "on", "off", "status":
+		case "on", "off", "status", "control", "set":
 			fmt.Fprintf(stderr, "ttsmode: %v; set HOME or TTSMODE_STATE_DIR\n", err)
 			return 1
 		}
