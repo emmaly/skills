@@ -29,7 +29,7 @@ const rewriteMarker = "NEEDS_INSTRUCTION"
 const currentMarker = "CURRENT_INSTRUCTIONS"
 
 // keywords are the exact subcommands a person can type.
-var keywords = []string{"on", "off", "status"}
+var keywords = []string{"on", "off", "status", "voice"}
 
 // longestKeyword bounds how long a word can be and still read as a typo.
 // Derived rather than written down, so adding a keyword cannot leave the cap
@@ -77,6 +77,15 @@ func runControl(stdin io.Reader, stdout, stderr io.Writer, store Store, session 
 			return 1
 		}
 		return run([]string{"status"}, strings.NewReader(""), stdout, stderr, envFor(store, session))
+	case "voice":
+		// Exactly one word: an id, or "default". A sentence after it would be
+		// a request, and mixing the two in one command is how an id ends up
+		// stored as prose or prose stored as an id.
+		if rest == "" || strings.ContainsAny(rest, " \t\n\r") {
+			fmt.Fprintln(stderr, "ttsmode: voice takes one voice id, or the word default")
+			return 1
+		}
+		return run([]string{"voice", rest}, strings.NewReader(""), stdout, stderr, envFor(store, session))
 	case "on":
 		if rest == "" {
 			return run([]string{"on"}, strings.NewReader(""), stdout, stderr, envFor(store, session))

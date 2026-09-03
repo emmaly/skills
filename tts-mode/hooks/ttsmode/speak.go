@@ -13,14 +13,17 @@ import (
 	"time"
 )
 
-// Voice and settings are fixed rather than configurable. They were chosen by
-// listening, and two of them are constraints rather than taste: the voice must
-// have rate 1.0, because a higher rate doubles the per-character cost, and it
-// must have live moderation off, because moderation adds latency to every line.
+// Settings are fixed rather than configurable. They were chosen by listening.
+//
+// The voice has a default and two overrides: TTSMODE_VOICE_ID for the whole
+// install, and a per-session choice stored with the session, which wins. Any
+// voice used here should have rate 1.0, because a higher rate doubles the
+// per-character cost, and live moderation off, because moderation adds latency
+// to every line. Neither is checked by the code.
 const (
-	voiceID      = "XdflFrQO8wbGpWMNZHFr"
-	modelID      = "eleven_v3"
-	outputFormat = "mp3_44100_192"
+	defaultVoiceID = "XdflFrQO8wbGpWMNZHFr"
+	modelID        = "eleven_v3"
+	outputFormat   = "mp3_44100_192"
 
 	// The generic host, not a data-residency one. An account on an isolated
 	// EU, India, or Singapore workspace needs a different base, so
@@ -51,10 +54,11 @@ func runSay(text string, synth Synth, player Player, logf func(string, ...any)) 
 	return playDirect(chunks, synth, player, logf)
 }
 
-// ElevenLabs is the real Synth.
+// ElevenLabs is the real Synth. An empty Voice means defaultVoiceID.
 type ElevenLabs struct {
 	Key     string
 	BaseURL string
+	Voice   string
 	HTTP    *http.Client
 }
 
@@ -97,7 +101,11 @@ func (e ElevenLabs) Speak(text string) ([]byte, error) {
 		return nil, fmt.Errorf("encode request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/v1/text-to-speech/%s?output_format=%s", base, voiceID, outputFormat)
+	voice := e.Voice
+	if voice == "" {
+		voice = defaultVoiceID
+	}
+	url := fmt.Sprintf("%s/v1/text-to-speech/%s?output_format=%s", base, voice, outputFormat)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)

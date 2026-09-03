@@ -104,8 +104,8 @@ func TestElevenLabsPostsExpectedRequest(t *testing.T) {
 	if string(audio) != "audio" {
 		t.Fatalf("got %q", audio)
 	}
-	if !strings.Contains(gotPath, voiceID) {
-		t.Fatalf("path %q missing the voice id", gotPath)
+	if !strings.Contains(gotPath, defaultVoiceID) {
+		t.Fatalf("path %q missing the default voice id", gotPath)
 	}
 	if gotKey != "secret" {
 		t.Fatalf("key header %q", gotKey)

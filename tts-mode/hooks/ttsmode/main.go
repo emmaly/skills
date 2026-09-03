@@ -11,6 +11,8 @@
 //	control Handle the raw argument a person typed after /tts, deciding between
 //	        a subcommand, a typo of one, and a freeform request.
 //	set     Store an already-rewritten instruction and enable this session.
+//	voice   Use a voice id for this session, or "default" to go back to the
+//	        global one. Enables the session.
 //	say     Render text and play it through the per-user queue.
 //	failures Print failures recorded by earlier says, then clear them.
 //	log     Append a message to the log, for the shell wrapper's use.
@@ -44,7 +46,7 @@ func main() {
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(string) string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: ttsmode hook|on|off|status|control|set|say|failures|log|prune")
+		fmt.Fprintln(stderr, "usage: ttsmode hook|on|off|status|control|set|voice|say|failures|log|prune")
 		return 2
 	}
 
@@ -58,13 +60,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	// do not depend on a state directory, and reporting "no HOME" for a
 	// misspelled subcommand would send the reader after the wrong problem.
 	switch command {
-	case "hook", "on", "off", "status", "control", "set", "say", "failures", "log", "prune":
+	case "hook", "on", "off", "status", "control", "set", "voice", "say", "failures", "log", "prune":
 	default:
 		fmt.Fprintf(stderr, "ttsmode: unknown subcommand %q\n", command)
 		return 2
 	}
 	if command == "say" && len(rest) == 0 {
 		fmt.Fprintln(stderr, `usage: ttsmode say "<text>"`)
+		return 2
+	}
+	if command == "voice" && len(rest) != 1 {
+		fmt.Fprintln(stderr, `usage: ttsmode voice <voice-id>|default`)
 		return 2
 	}
 
@@ -77,7 +83,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		// there is nowhere to log because the log lives in the directory we
 		// just failed to resolve.
 		switch command {
-		case "on", "off", "status", "control", "set":
+		case "on", "off", "status", "control", "set", "voice":
 			fmt.Fprintf(stderr, "ttsmode: %v; set HOME or TTSMODE_STATE_DIR\n", err)
 			return 1
 		}
@@ -109,6 +115,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	case "status":
 		if store.Enabled(session) {
 			fmt.Fprintln(stdout, "Spoken output is ON for this session.")
+			if voice := store.Voice(session); voice != "" {
+				fmt.Fprintf(stdout, "Voice for this session: %s\n", voice)
+			}
 			if extra := store.Instructions(session); extra != "" {
 				fmt.Fprintf(stdout, "\nInstructions for this session:\n\n%s\n", indent(extra))
 			}
@@ -122,6 +131,22 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 
 	case "set":
 		return runSet(stdin, stdout, stderr, store, session)
+
+	case "voice":
+		voice := rest[0]
+		if strings.EqualFold(voice, "default") {
+			voice = ""
+		}
+		if err := store.SetVoice(session, voice); err != nil {
+			fmt.Fprintf(stderr, "ttsmode: %v\n", err)
+			return 1
+		}
+		if voice == "" {
+			fmt.Fprintln(stdout, "Spoken output is ON for this session, using the default voice.")
+		} else {
+			fmt.Fprintf(stdout, "Spoken output is ON for this session, using voice %s.\n", voice)
+		}
+		return 0
 
 	case "say":
 		// Speech is gated on the live state, not only on the instruction that
@@ -151,7 +176,21 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		// Join rather than take the first argument. The wrapper passes the line
 		// as one argument, but a hand-run call that splits it would otherwise
 		// be truncated at the first space with the rest silently dropped.
-		client := ElevenLabs{Key: key, BaseURL: env("TTSMODE_API_BASE")}
+		// The session's own voice wins over the install-wide override, which
+		// wins over the built-in default. An unusable install-wide id is logged
+		// and skipped rather than sent, so the log names the setting instead of
+		// a 404 from the API.
+		voice := store.Voice(session)
+		if voice == "" {
+			if global := strings.TrimSpace(env("TTSMODE_VOICE_ID")); global != "" {
+				if validVoiceID(global) {
+					voice = global
+				} else {
+					logf("TTSMODE_VOICE_ID is not a voice id, using the default: %q", global)
+				}
+			}
+		}
+		client := ElevenLabs{Key: key, BaseURL: env("TTSMODE_API_BASE"), Voice: voice}
 		queue := Queue{Dir: filepath.Join(store.Dir, "queue")}
 		return runSayQueued(strings.Join(rest, " "), client, CommandPlayer{}, queue, logf)
 

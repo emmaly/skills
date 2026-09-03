@@ -60,10 +60,40 @@ func (s Store) path(session string) (string, error) {
 	return filepath.Join(s.sessionsDir(), session), nil
 }
 
+// voicePrefix marks the one header line a session file may carry between the
+// timestamp and the instructions. A header rather than a sidecar file: prune
+// works from mtime, and a sidecar would be pruned out from under a session
+// whose main file Enabled keeps refreshing.
+const voicePrefix = "voice="
+
+// ErrBadVoice is returned for a voice id that could not be a path segment of
+// the API URL. The id is typed by a person and sent in a request path.
+var ErrBadVoice = errors.New("invalid voice id")
+
 // Enable turns TTS on for a session, with optional freeform instructions that
 // shape what gets spoken. Calling it twice is not an error, and each call
 // replaces the instructions, so "on" with no text is how they are cleared.
+//
+// A voice already chosen for the session is carried through. It is a setting,
+// not an instruction, and clearing it on every "on" would have a person who
+// picked a voice and then asked for shorter lines lose the voice.
 func (s Store) Enable(session, instructions string) error {
+	return s.write(session, s.Voice(session), instructions)
+}
+
+// SetVoice records a voice for the session and turns TTS on. An empty id
+// returns the session to the global default.
+func (s Store) SetVoice(session, voice string) error {
+	if voice != "" && !validVoiceID(voice) {
+		return fmt.Errorf("%w: %q", ErrBadVoice, voice)
+	}
+	return s.write(session, voice, s.Instructions(session))
+}
+
+// write lays the file out as timestamp, optional voice header, instructions.
+// A file written before either header existed has only the first line, and
+// still reads correctly as enabled with none.
+func (s Store) write(session, voice, instructions string) error {
 	target, err := s.path(session)
 	if err != nil {
 		return err
@@ -71,10 +101,11 @@ func (s Store) Enable(session, instructions string) error {
 	if err := os.MkdirAll(s.sessionsDir(), 0o700); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
-	// First line is the timestamp, everything after it is the instructions.
-	// A file written before instructions existed has only the first line, and
-	// still reads correctly as enabled with none.
-	body := time.Now().UTC().Format(time.RFC3339) + "\n" + instructions
+	body := time.Now().UTC().Format(time.RFC3339) + "\n"
+	if voice != "" {
+		body += voicePrefix + voice + "\n"
+	}
+	body += instructions
 	if err := os.WriteFile(target, []byte(body), 0o600); err != nil {
 		return fmt.Errorf("write state: %w", err)
 	}
@@ -85,19 +116,59 @@ func (s Store) Enable(session, instructions string) error {
 // there is none. Any error reads as none: the hook calls this on every prompt,
 // and losing the extra guidance is better than failing the turn.
 func (s Store) Instructions(session string) string {
+	_, instructions := s.read(session)
+	return instructions
+}
+
+// Voice returns the voice id chosen for the session, or empty when it should
+// use the default. Any error reads as the default, for the same reason as
+// Instructions.
+func (s Store) Voice(session string) string {
+	voice, _ := s.read(session)
+	return voice
+}
+
+// read splits a session file into its voice header and instructions. The
+// header is recognized by its prefix, so a file from before the header existed
+// reads its second line as instructions, as it always did.
+func (s Store) read(session string) (voice, instructions string) {
 	target, err := s.path(session)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	body, err := os.ReadFile(target)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	_, rest, found := strings.Cut(string(body), "\n")
 	if !found {
-		return ""
+		return "", ""
 	}
-	return strings.TrimSpace(rest)
+	if strings.HasPrefix(rest, voicePrefix) {
+		line, after, _ := strings.Cut(rest, "\n")
+		voice = strings.TrimSpace(strings.TrimPrefix(line, voicePrefix))
+		if !validVoiceID(voice) {
+			voice = ""
+		}
+		rest = after
+	}
+	return voice, strings.TrimSpace(rest)
+}
+
+// validVoiceID accepts what ElevenLabs issues: ASCII letters and digits. The
+// id is spliced into a URL path, so anything else is refused rather than
+// escaped.
+func validVoiceID(id string) bool {
+	if id == "" || len(id) > 64 {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // Disable turns TTS off. A session that was never enabled is not an error.
