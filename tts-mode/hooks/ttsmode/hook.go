@@ -47,6 +47,27 @@ How to write the line:
 - Say what happened, not what you are about to narrate.
 
 This is in addition to your normal written response, which is unchanged.
+%s`
+
+// extraTemplate carries the session's own instructions. It says plainly that
+// they win, because the caps above name specific numbers and a request like
+// "target forty words" is unfollowable next to a fifteen-word rule that does
+// not yield.
+//
+// The precedence is scoped to style and length on purpose. Granting it over
+// "the rules above" also handed it the rule against speaking secrets and full
+// paths, and a request as ordinary as "say which file you touched" is then
+// enough to license reading a path aloud in a room.
+const extraTemplate = `
+## Instructions for this session
+
+These were set for this session. They take precedence over the style and
+length rules above, including the word and line counts:
+
+%s
+
+They do not override the rule against speaking secrets, tokens, credentials,
+or full filesystem paths. That one holds however these are worded.
 `
 
 // hookPayload is the slice of the hook event this cares about. Everything else
@@ -73,7 +94,11 @@ func runHook(stdin io.Reader, stdout io.Writer, store Store, env func(string) st
 	if session == "" || !store.Enabled(session) {
 		return 0
 	}
-	fmt.Fprintf(stdout, instructionTemplate, shellQuote(wrapperPath), heredocDelimiter, heredocDelimiter)
+	var extra string
+	if text := store.Instructions(session); text != "" {
+		extra = fmt.Sprintf(extraTemplate, text)
+	}
+	fmt.Fprintf(stdout, instructionTemplate, shellQuote(wrapperPath), heredocDelimiter, heredocDelimiter, extra)
 	return 0
 }
 

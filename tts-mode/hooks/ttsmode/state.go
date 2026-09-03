@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -59,8 +60,10 @@ func (s Store) path(session string) (string, error) {
 	return filepath.Join(s.sessionsDir(), session), nil
 }
 
-// Enable turns TTS on for a session. Calling it twice is not an error.
-func (s Store) Enable(session string) error {
+// Enable turns TTS on for a session, with optional freeform instructions that
+// shape what gets spoken. Calling it twice is not an error, and each call
+// replaces the instructions, so "on" with no text is how they are cleared.
+func (s Store) Enable(session, instructions string) error {
 	target, err := s.path(session)
 	if err != nil {
 		return err
@@ -68,11 +71,33 @@ func (s Store) Enable(session string) error {
 	if err := os.MkdirAll(s.sessionsDir(), 0o700); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
-	stamp := time.Now().UTC().Format(time.RFC3339) + "\n"
-	if err := os.WriteFile(target, []byte(stamp), 0o600); err != nil {
+	// First line is the timestamp, everything after it is the instructions.
+	// A file written before instructions existed has only the first line, and
+	// still reads correctly as enabled with none.
+	body := time.Now().UTC().Format(time.RFC3339) + "\n" + instructions
+	if err := os.WriteFile(target, []byte(body), 0o600); err != nil {
 		return fmt.Errorf("write state: %w", err)
 	}
 	return nil
+}
+
+// Instructions returns the freeform text stored with a session, or empty when
+// there is none. Any error reads as none: the hook calls this on every prompt,
+// and losing the extra guidance is better than failing the turn.
+func (s Store) Instructions(session string) string {
+	target, err := s.path(session)
+	if err != nil {
+		return ""
+	}
+	body, err := os.ReadFile(target)
+	if err != nil {
+		return ""
+	}
+	_, rest, found := strings.Cut(string(body), "\n")
+	if !found {
+		return ""
+	}
+	return strings.TrimSpace(rest)
 }
 
 // Disable turns TTS off. A session that was never enabled is not an error.

@@ -8,7 +8,11 @@
 //	on      Enable for this session.
 //	off     Disable for this session.
 //	status  Report the current state.
-//	say     Render one line and play it.
+//	control Handle the raw argument a person typed after /tts, deciding between
+//	        a subcommand, a typo of one, and a freeform request.
+//	set     Store an already-rewritten instruction and enable this session.
+//	say     Render text and play it through the per-user queue.
+//	failures Print failures recorded by earlier says, then clear them.
 //	log     Append a message to the log, for the shell wrapper's use.
 //	prune   Remove state files from sessions that ended long ago.
 //
@@ -40,7 +44,7 @@ func main() {
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(string) string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: ttsmode hook|on|off|status|say|prune")
+		fmt.Fprintln(stderr, "usage: ttsmode hook|on|off|status|control|set|say|failures|log|prune")
 		return 2
 	}
 
@@ -54,7 +58,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	// do not depend on a state directory, and reporting "no HOME" for a
 	// misspelled subcommand would send the reader after the wrong problem.
 	switch command {
-	case "hook", "on", "off", "status", "say", "log", "prune":
+	case "hook", "on", "off", "status", "control", "set", "say", "failures", "log", "prune":
 	default:
 		fmt.Fprintf(stderr, "ttsmode: unknown subcommand %q\n", command)
 		return 2
@@ -66,13 +70,14 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 
 	dir, err := stateDir(env)
 	if err != nil {
-		// Same split as the shell wrappers. on/off/status are typed by a
-		// person, so silence would read as success while TTS stayed off.
+		// Same split as the shell wrappers. on, off, status, control, and set are
+		// typed by a person, so silence would read as success while TTS stayed
+		// off.
 		// Everything else runs unattended and must not fail the turn, and
 		// there is nowhere to log because the log lives in the directory we
 		// just failed to resolve.
 		switch command {
-		case "on", "off", "status":
+		case "on", "off", "status", "control", "set":
 			fmt.Fprintf(stderr, "ttsmode: %v; set HOME or TTSMODE_STATE_DIR\n", err)
 			return 1
 		}
@@ -86,7 +91,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		return runHook(stdin, stdout, store, env, sessionFlag, wrapperPath(env))
 
 	case "on":
-		if err := store.Enable(session); err != nil {
+		if err := store.Enable(session, ""); err != nil {
 			fmt.Fprintf(stderr, "ttsmode: %v\n", err)
 			return 1
 		}
@@ -104,10 +109,19 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	case "status":
 		if store.Enabled(session) {
 			fmt.Fprintln(stdout, "Spoken output is ON for this session.")
+			if extra := store.Instructions(session); extra != "" {
+				fmt.Fprintf(stdout, "\nInstructions for this session:\n\n%s\n", indent(extra))
+			}
 		} else {
 			fmt.Fprintln(stdout, "Spoken output is OFF for this session.")
 		}
 		return 0
+
+	case "control":
+		return runControl(stdin, stdout, stderr, store, session)
+
+	case "set":
+		return runSet(stdin, stdout, stderr, store, session)
 
 	case "say":
 		// Speech is gated on the live state, not only on the instruction that
@@ -138,7 +152,18 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		// as one argument, but a hand-run call that splits it would otherwise
 		// be truncated at the first space with the rest silently dropped.
 		client := ElevenLabs{Key: key, BaseURL: env("TTSMODE_API_BASE")}
-		return runSay(strings.Join(rest, " "), client, CommandPlayer{}, logf)
+		queue := Queue{Dir: filepath.Join(store.Dir, "queue")}
+		return runSayQueued(strings.Join(rest, " "), client, CommandPlayer{}, queue, logf)
+
+	case "failures":
+		// The wrapper runs this in the foreground before backgrounding a say,
+		// so a failure from an earlier line reaches the model that asked for
+		// it. The background job itself has no stdout anyone reads.
+		queue := Queue{Dir: filepath.Join(store.Dir, "queue")}
+		for _, line := range queue.TakeFailures() {
+			fmt.Fprintf(stdout, "tts-mode: earlier spoken line failed: %s\n", line)
+		}
+		return 0
 
 	case "log":
 		// Lets the shell wrapper record what it could not do. A dropped line

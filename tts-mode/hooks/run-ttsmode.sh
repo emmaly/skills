@@ -23,7 +23,7 @@ set -euo pipefail
 # a build that will not compile.
 SUBCOMMAND="${1:-}"
 case "$SUBCOMMAND" in
-    on | off | status) USER_FACING=1 ;;
+    on | off | status | control | set) USER_FACING=1 ;;
     *) USER_FACING=0 ;;
 esac
 
@@ -117,12 +117,13 @@ elif [[ -n "$(find "$SRC_DIR" \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum
     needs_build=1
 fi
 
-# The hook runs synchronously on every prompt, so it must never compile: the
+# The hook runs synchronously on every prompt, and failures runs synchronously
+# before every spoken line, so neither must ever compile: the
 # first prompt after any source edit would block the turn on a full build, even
 # for a session where TTS is off and the hook will emit nothing at all. It uses
 # whatever binary exists and otherwise does nothing. The async SessionStart
 # prune is what keeps the cache warm.
-if (( needs_build )) && [[ "$SUBCOMMAND" == "hook" ]]; then
+if (( needs_build )) && [[ "$SUBCOMMAND" == "hook" || "$SUBCOMMAND" == "failures" ]]; then
     [[ -x "$BIN" ]] || exit 0
     needs_build=0
 fi

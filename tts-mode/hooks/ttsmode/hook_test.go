@@ -27,7 +27,7 @@ func TestHookSilentWhenDisabled(t *testing.T) {
 
 func TestHookEmitsInstructionWhenEnabled(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("abc"); err != nil {
+	if err := store.Enable("abc", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	var out bytes.Buffer
@@ -52,7 +52,7 @@ func TestHookEmitsInstructionWhenEnabled(t *testing.T) {
 // environment has no CLAUDE_PLUGIN_ROOT to expand.
 func TestHookUsesGivenWrapperPath(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("abc"); err != nil {
+	if err := store.Enable("abc", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	var out bytes.Buffer
@@ -68,7 +68,7 @@ func TestHookUsesGivenWrapperPath(t *testing.T) {
 // a session id in its payload.
 func TestHookFallsBackToEnvSession(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("from-env"); err != nil {
+	if err := store.Enable("from-env", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	env := func(name string) string {
@@ -105,7 +105,7 @@ func TestHookSurvivesGarbagePayload(t *testing.T) {
 // hook branch discarded the flag entirely and the doc comment was wrong.
 func TestHookPrefersOverrideOverPayload(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("flagged"); err != nil {
+	if err := store.Enable("flagged", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	var out bytes.Buffer
@@ -122,7 +122,7 @@ func TestHookPrefersOverrideOverPayload(t *testing.T) {
 // and silent.
 func TestHookQuotesWrapperPathWithSpaces(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("abc"); err != nil {
+	if err := store.Enable("abc", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	var out bytes.Buffer
@@ -149,7 +149,7 @@ func TestShellQuoteEscapesSingleQuotes(t *testing.T) {
 // the instruction must not put it on the command line at all.
 func TestInstructionDoesNotPutTextOnTheCommandLine(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	if err := store.Enable("abc"); err != nil {
+	if err := store.Enable("abc", ""); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	var out bytes.Buffer
@@ -172,5 +172,41 @@ func TestInstructionDoesNotPutTextOnTheCommandLine(t *testing.T) {
 		if strings.Contains(line, heredocDelimiter) && strings.TrimLeft(line, " \t") != line {
 			t.Fatalf("heredoc line is indented: %q", line)
 		}
+	}
+}
+
+// Instructions have to reach the injected prompt, and say plainly that they
+// beat the defaults. A request for forty-word lines is unfollowable next to a
+// fifteen-word rule that does not yield.
+func TestHookInjectsSessionInstructions(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	if err := store.Enable("abc", "- Speak once a turn, at the end.\n- Target forty words."); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	var out bytes.Buffer
+
+	runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "", "/p/tts-say.sh")
+
+	got := out.String()
+	if !strings.Contains(got, "Target forty words.") {
+		t.Fatalf("instructions missing:\n%s", got)
+	}
+	if !strings.Contains(got, "take precedence") {
+		t.Fatalf("instructions do not claim precedence:\n%s", got)
+	}
+}
+
+// With none set, nothing extra is injected. The prompt is paid for every turn.
+func TestHookOmitsTheSectionWithNoInstructions(t *testing.T) {
+	store := Store{Dir: t.TempDir()}
+	if err := store.Enable("abc", ""); err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	var out bytes.Buffer
+
+	runHook(strings.NewReader(`{"session_id":"abc"}`), &out, store, noEnv, "", "/p/tts-say.sh")
+
+	if strings.Contains(out.String(), "Instructions for this session") {
+		t.Fatalf("empty section was injected:\n%s", out.String())
 	}
 }
