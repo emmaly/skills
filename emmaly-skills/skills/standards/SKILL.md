@@ -2,6 +2,8 @@
 name: standards
 description: Emmaly's core collaboration style and preferred technology stack. Normally already in context, since the plugin's SessionStart hook injects it, so it rarely needs invoking; load it explicitly when asked what the standards or preferred stack are, or whenever they are not already in context (the hook did not run, or failed to emit them).
 ---
+Emmaly (she/her).
+
 - Pair programming style
 - Expert-level: skip introductory explanations
 - High autonomy: proceed without asking unless a decision is genuinely ambiguous or high-risk
@@ -12,6 +14,7 @@ description: Emmaly's core collaboration style and preferred technology stack. N
 - **Commit in focused chunks, not just at the end.** Conventional-commit messages between units of work so a branch picked up months later is legible. (See `emmaly-skills:git-workflow`.)
 - **Security-conscious by default.** Threat-model lightly even on small projects: least standing access, segmentation, secrets out of the repo (`~/.secrets/*.env` pattern), audit-friendly logs. Design that way without being asked.
 - **Embedded / IoT is in scope.** Occasional ESP32 (esp. **ESP32-C6**) + **Thread/Matter**; **Home Assistant** is standing home infra (see `emmaly-skills:home-assistant`). ESPHome / Arduino-ESP32 toolchains.
+- **Integration between SaaS systems over APIs is a frequent project shape.** Expect to be writing or wrapping REST clients about as often as building an application from scratch.
 
 ## Language choice
 
@@ -66,8 +69,8 @@ quickly is not one. A slower Go answer beats a fast Python one every time.
 
 **Default to the self-hosted Kubernetes cluster.** Unless a project says otherwise, assume it is deployed there.
 
-- **Kubernetes (default)**: a self-hosted k3s cluster. Manifests live in the project's own repo, images in `ghcr.io/emmaly/*`, storage on Longhorn (the default StorageClass). The conventions live in `~/Projects/kube`: start at that README, then `docs/MIGRATING-A-PROJECT.md` from `## The rules that are not negotiable` through `## Pod hygiene`. There is no deployment skill yet, so read those rather than inventing a deployment shape
-  - **Deploying there is the default; publishing to the internet is not.** `cloudflared/route.sh <host>` plus an Ingress makes a service publicly reachable. Ask first, unless the project already owns that hostname and you are restoring it. Cluster-internal by default; public on purpose
+- **Kubernetes (default)**: a self-hosted k3s cluster. Manifests live in the project's own repo, images in `ghcr.io/emmaly/*`, storage on Longhorn (the default StorageClass). The conventions live in `~/Projects/kube`: start at that README, then `docs/MIGRATING-A-PROJECT.md` from `## The rules that are not negotiable` through `## Pod hygiene`. There is no deployment skill yet, so read those rather than inventing a deployment shape. **This is the one thing the plugin does not carry on its own.** Kubernetes work needs `~/Projects/kube` cloned; on a machine without it, ask rather than guess
+  - **Reach for the narrowest exposure that works.** Cluster-internal is the default. A LAN address comes from a MetalLB service via `loadBalancerClass`, which is also the answer for UDP or anything else an HTTP Ingress cannot carry. Private remote access is the Tailscale operator, which gives a workload its own tailnet node; use its Ingress class, not a LoadBalancer Service, for anything a browser reaches over HTTPS, and see `~/Projects/kube/unifi/README.md` for why. Public is the last step, not the assumed one: `cloudflared/route.sh <host>` plus an Ingress puts it on the internet. Ask before every public exposure, with no exceptions. Owning the hostname already is not the same as being authorized to publish it today. The LAN and tailnet levels need no such gate
 - **Cloud**: Google Cloud Run or Firebase Functions, when there is a reason to be off-cluster
 - **CLI tools**: standalone binaries, often just for the local machine
 - **Windows**: occasionally Windows desktop or Windows Services (not often the primary target)
@@ -80,3 +83,7 @@ The `emmaly-skills` plugin provides skills for Go, Svelte, git workflow, integra
 `emmaly-skills:plain-language` governs all human-language output, always. Like these standards, it is normally already in context because the SessionStart hook emits it, so it rarely needs invoking. Invoke it explicitly if it is not in context (the hook did not run, or failed to emit it).
 
 Before pushing anything to GitHub, invoke `emmaly-skills:integration`. It carries a mandatory local review gate and routes all in-session reviews to Claude's built-in `code-review` skill; CodeRabbit is reserved for the PR merge gate.
+
+**Keep `CLAUDE.md` files thin.** Anything true across machines and jobs belongs in this skill, which every machine with the plugin enabled gets automatically. A `CLAUDE.md` should hold only what is specific to that machine, employer, or project. When a rule turns out to apply everywhere, move it here rather than copying it into a second `CLAUDE.md`.
+
+This skill is **public**. Emmaly's own infrastructure conventions are fine here and are named above. Anything belonging to an employer or client is not: no company names, internal hostnames, ticket systems, or customer details. If a rule cannot be stated without those, it belongs in that machine's `CLAUDE.md`.

@@ -1,5 +1,12 @@
 # Next: emmaly-skills
 
+Status as of 2026-09-03: `standards` gained the parked August work: "Emmaly
+(she/her)", the SaaS-integration project shape, a four-level exposure ladder
+for the cluster (internal, LAN, tailnet, public) with public gated on asking
+every time, the admission that Kubernetes work needs `~/Projects/kube` cloned,
+and the public-repo boundary. `project-setup` gained the documentation quality
+bar and split PRDs. Released as `20260903001`.
+
 Status as of 2026-08-25: `integration` rewritten to keep CodeRabbit under its
 5 reviews/hour limit. The mandatory gate now applies before marking a PR ready
 for review or pushing to a non-draft PR, and is Claude's built-in `code-review`
@@ -139,13 +146,19 @@ argument is named in the rule.
   the word list before cutting the revision pass. The pass is the checklist that
   catches what the word list cannot name, and step 5, cut it by a third, is
   where most of the length actually comes off.
-- **A new machine needs this plugin and nothing else.** The `## Working style`
-  bullets moved out of `~/.claude/CLAUDE.md` into `standards/SKILL.md` on
-  2026-08-09, and that file is now empty. Install the marketplace, enable
-  `emmaly-skills`, and every universal rule loads. The dotfiles repo is no longer
-  required to get moving. The tradeoff: `CLAUDE.md` used to load unconditionally,
-  whereas the hook only fires when the plugin is enabled. Put machine-specific
+- **A new machine needs this plugin and nothing else, with one exception.** The
+  `## Working style` bullets moved out of `~/.claude/CLAUDE.md` into
+  `standards/SKILL.md` on 2026-08-09. Install the marketplace, enable
+  `emmaly-skills`, and every universal rule loads; the dotfiles repo is no
+  longer required to get moving. `~/.claude/CLAUDE.md` now holds only
+  machine-local instructions (as of 2026-09-03, the `~/Projects/README.md`
+  index rules). The tradeoff: `CLAUDE.md` used to load unconditionally, whereas
+  the hook only fires when the plugin is enabled. Put machine-specific
   instructions in `CLAUDE.md`; put anything universal in the skill.
+  **The exception is Kubernetes**: the cluster conventions live in
+  `~/Projects/kube`, so that repo must be cloned for deployment work. Closing
+  that gap is the open question in the Kubernetes to-do below: moving the
+  conventions into the skill would make the plugin self-sufficient.
 
 ## Releasing a change (do not skip)
 
@@ -216,16 +229,19 @@ debugging anything else. For iterating without a release, run
   produced **five** contract fixes, the smallest of any migration. The series
   ran 10, 3, 8, 8, 9, 7, 11, 7, 9, 9, 12, 5. The conventions have converged.
 
-  **Confirm two things first, because the ledger and the room disagree.**
-  Emmaly reports on 2026-08-11 that `unifi` migrated and that podlap is probably
-  empty, pending a manual check. `~/Projects/kube/docs/MIGRATION-STATUS.md` does
-  not agree: as of commit `950850d` it still lists `unifi` as deferred in three
-  places, including its row in the services table, and the newest commit there is
-  the charmcrafterlite round. That ledger calls itself "the only thing that
-  survives a fresh session", so if `unifi` did move, **the gap is in the ledger,
-  not here**. Fix it there first. `unifi` also matters to the skill's content:
-  it is the one workload needing UDP that an HTTP Ingress cannot carry, so how it
-  was solved belongs in the non-HTTP section.
+  **The migration is finished.** `unifi` landed 2026-08-10 (kube `5f0451f`),
+  making it fifteen migrated, two dropped, nothing parked. podlap runs no
+  services; what blocks the wipe is data and routing, not processes.
+
+  **`unifi` added capability rather than rewriting anything**, which is what the
+  deferral was waiting to find out. It brought **MetalLB** (LAN addresses via
+  `loadBalancerClass`, coexisting with k3s's ServiceLB) and the **Tailscale
+  operator** (a Service gets its own tailnet node with a real certificate), and
+  split into two planes: devices on a MetalLB VIP, admin UI on the tailnet. The
+  HTTP conventions were untouched. So the skill now has four exposure levels to
+  document, not one (cluster-internal, LAN, tailnet, public), and
+  `standards/SKILL.md` already carries that ladder. Full detail is in
+  `~/Projects/kube/docs/UNIFI-DESIGN.md` and `unifi/README.md`.
 
   When picking this up, the open question is where the conventions should live:
   move them out of the kube contract into the skill (one source of truth, but a
@@ -234,5 +250,7 @@ debugging anything else. For iterating without a release, run
   this plugin just spent a session removing.
 - `standards/SKILL.md` → "Deployment Targets" now names Kubernetes as the
   default and carries the shape (project-repo manifests, `ghcr.io/emmaly/*`
-  images, Longhorn storage, `route.sh` + Ingress). Revisit once the skill exists,
-  so the standards can point at it instead of at `~/Projects/kube` directly.
+  images, Longhorn storage) and the exposure ladder (MetalLB for LAN, the
+  Tailscale operator for the tailnet, `route.sh` + Ingress for public). Revisit
+  once the skill exists, so the standards can point at it instead of at
+  `~/Projects/kube` directly.
