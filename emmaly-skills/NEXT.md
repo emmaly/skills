@@ -139,15 +139,15 @@ argument is named in the rule.
   the word list before cutting the revision pass. The pass is the checklist that
   catches what the word list cannot name, and step 5, cut it by a third, is
   where most of the length actually comes off.
-- **A new machine needs this plugin and nothing else — with one exception.** The
+- **A new machine needs this plugin and nothing else, with one exception.** The
   `## Working style` bullets moved out of `~/.claude/CLAUDE.md` into
-  `standards/SKILL.md` on 2026-08-09, and that file is now empty — install the
+  `standards/SKILL.md` on 2026-08-09, and that file is now empty. Install the
   marketplace, enable `emmaly-skills`, and every universal rule loads.
   `~/.claude/CLAUDE.md` is now empty as a result, and the dotfiles repo is no
   longer required to get moving. **The exception is
   Kubernetes**: the cluster conventions live in `~/Projects/kube`, so that repo
   must be cloned for deployment work. Closing that gap is exactly the open
-  question in the Kubernetes to-do below — moving the conventions into the skill
+  question in the Kubernetes to-do below: moving the conventions into the skill
   would make the plugin genuinely self-sufficient. The tradeoff: `CLAUDE.md` used to load unconditionally,
   whereas the hook only fires when the plugin is enabled. Put machine-specific
   instructions in `CLAUDE.md`; put anything universal in the skill.
@@ -231,7 +231,7 @@ debugging anything else. For iterating without a release, run
   operator** (a Service gets its own tailnet node with a real certificate), and
   split into two planes: devices on a MetalLB VIP, admin UI on the tailnet. The
   HTTP conventions were untouched. So the skill now has four exposure levels to
-  document, not one — cluster-internal, LAN, tailnet, public — and
+  document, not one (cluster-internal, LAN, tailnet, public), and
   `standards/SKILL.md` already carries that ladder. Full detail is in
   `~/Projects/kube/docs/UNIFI-DESIGN.md` and `unifi/README.md`.
 
