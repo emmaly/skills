@@ -6,6 +6,8 @@ import (
 	"unicode/utf8"
 )
 
+// Short sentences pack into pieces that each end on a sentence and stay
+// within the target, and nothing is lost in the split.
 func TestSpeakableSplitsOnSentences(t *testing.T) {
 	text := strings.Repeat("This sentence is about forty characters long. ", 8)
 	chunks := speakable(text, discardf)
@@ -25,6 +27,7 @@ func TestSpeakableSplitsOnSentences(t *testing.T) {
 	}
 }
 
+// With no sentence terminators, splits land only on word boundaries.
 func TestSpeakableNeverCutsInsideAWord(t *testing.T) {
 	// One long sentence with no terminator, so only word boundaries can split.
 	text := strings.Repeat("alpha beta gamma delta ", 80)
@@ -39,6 +42,8 @@ func TestSpeakableNeverCutsInsideAWord(t *testing.T) {
 	}
 }
 
+// Text over maxSpokenChars is cut to the cap at a word boundary, and the cut
+// is logged.
 func TestSpeakableCapsAtWordBoundary(t *testing.T) {
 	text := strings.Repeat("word ", maxSpokenChars)
 	var logged string
@@ -60,6 +65,7 @@ func TestSpeakableCapsAtWordBoundary(t *testing.T) {
 	}
 }
 
+// The cap counts runes, so a multi-byte character is never split.
 func TestSpeakableKeepsMultibyteRunesIntact(t *testing.T) {
 	text := strings.Repeat("é", maxSpokenChars+50)
 	for _, c := range speakable(text, discardf) {
@@ -69,8 +75,48 @@ func TestSpeakableKeepsMultibyteRunesIntact(t *testing.T) {
 	}
 }
 
+// Whitespace-only text yields no pieces at all.
 func TestSpeakableEmpty(t *testing.T) {
 	if got := speakable("  \n\t ", discardf); got != nil {
 		t.Fatalf("expected nil, got %q", got)
+	}
+}
+
+// A sentence over the target but under the ceiling is sent whole. Splitting
+// it at a word is what a listener hears as the voice stopping mid-sentence.
+func TestSpeakableKeepsALongSentenceWhole(t *testing.T) {
+	sentence := strings.TrimSpace(strings.Repeat("word ", 70)) + "." // 350 chars
+	if n := utf8.RuneCountInString(sentence); n <= chunkChars || n > maxChunkChars {
+		t.Fatalf("test sentence is %d chars, want between %d and %d", n, chunkChars, maxChunkChars)
+	}
+	text := "Short one. " + sentence + " Short two."
+	chunks := speakable(text, discardf)
+	found := false
+	for _, c := range chunks {
+		if c == sentence {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("long sentence was split: %q", chunks)
+	}
+}
+
+// Past the ceiling a sentence is still split, at words, within the ceiling.
+func TestSpeakableSplitsPastTheCeiling(t *testing.T) {
+	sentence := strings.TrimSpace(strings.Repeat("word ", 120)) + "." // 600 chars
+	chunks := speakable(sentence, discardf)
+	if len(chunks) < 2 {
+		t.Fatalf("expected a split, got %d chunk", len(chunks))
+	}
+	for _, c := range chunks {
+		if utf8.RuneCountInString(c) > maxChunkChars {
+			t.Fatalf("chunk over the ceiling: %d", utf8.RuneCountInString(c))
+		}
+		for _, w := range strings.Fields(c) {
+			if w != "word" && w != "word." {
+				t.Fatalf("split inside a word: %q", w)
+			}
+		}
 	}
 }

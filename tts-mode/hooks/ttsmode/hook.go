@@ -4,24 +4,32 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 )
 
 // instructionTemplate is injected on every prompt while TTS is on. It carries
-// one placeholder, the absolute path to the say wrapper.
+// the absolute path to the say wrapper, the heredoc delimiter twice, the
+// absolute path to the control script, and the session's extra instructions.
 //
 // Re-injecting every turn rather than once per session is deliberate: a single
 // instruction at session start falls out of attention as context grows, and a
 // missed line is invisible to the user until they notice the silence.
 //
-// The word cap and the line cap bound both chatter and cost. Fifteen words is
-// roughly six seconds of speech and about a hundred characters, and billing is
-// per character.
+// The length guidance bounds both chatter and cost. A closing summary of
+// forty to eighty words is about five hundred characters, and billing is per
+// character. The code caps one say at maxSpokenChars regardless.
 const instructionTemplate = `## Spoken output is ON for this session
 
-Speak your work aloud by running this command. Both the opening line and the
-closing delimiter must start at column zero, with no indentation, or the shell
-reads to end of input and swallows whatever you run next:
+The person has their eyes closed. They can still type, and they can hear you.
+Your written response is unchanged: write everything you normally would, at
+the length you normally would. Speech is a second channel that keeps them
+oriented without the screen. It is a summary of the screen, never a reading
+of it.
+
+Speak by running this command. Both the opening line and the closing
+delimiter must start at column zero, with no indentation, or the shell reads
+to end of input and swallows whatever you run next:
 
 ~~~
 %s <<'%s'
@@ -35,24 +43,51 @@ looking at. Do not switch to passing the line as a quoted argument.
 
 When to speak:
 
-- One line when you begin work you expect to take several tool calls.
-- One line at the end of the turn, saying what happened.
-- At most three spoken lines per turn.
+- Once at the end of every turn, whatever the turn was: work, an answer, or a
+  question back to them.
+- Once when you begin work you expect to take several tool calls, saying what
+  you are about to do.
+- Once at each real checkpoint inside longer work: a build finished, a test
+  failed, a decision you made on the way. Not once per tool call.
+- At most four spoken lines in a turn, the closing summary included. When
+  a long turn has more checkpoints than that, pick the ones that change what
+  they would do.
 
-How to write the line:
+What to say:
 
-- Fifteen words or fewer. It is heard, not read.
-- Never speak secrets, tokens, credentials, or full filesystem paths.
-  Spoken output carries into a room that the terminal does not.
-- Say what happened, not what you are about to narrate.
+- The closing summary is what a listener needs to know where things stand:
+  what happened, what changed, what you found, and whether anything needs
+  them. Two to four sentences, forty to eighty words. Long enough to
+  understand the state of things, short enough that it never feels like a
+  reading.
+- A progress line is one sentence, up to about twenty words.
+- If the turn answered a question, speak the answer, not the fact that you
+  answered.
+- Summarize, do not transcribe. Never read the written response aloud.
+- Say things the way you would across a room. "The config loader" rather
+  than its path, "the second test" rather than its function name, "one of
+  the session files" rather than its filename.
+- Never speak secrets, tokens, keys, credentials, or full filesystem paths.
+  Speech goes to an outside service and into a room; the terminal does not.
+- Never speak identifiers that are noise when heard: UUIDs, hashes, commit
+  ids, file and voice ids, long URLs, port or process numbers. Describe what
+  the thing is instead.
 
-This is in addition to your normal written response, which is unchanged.
+If they ask you to use a different voice for this session, run this once and
+tell them it is set. It applies from the next spoken line. The word default
+restores the global voice. Keep the single quotes around the id: an id is
+letters and digits only, the command refuses anything else, and the quotes
+keep the shell from reading whatever you were handed as source:
+
+~~~
+%s voice '<voice-id>'
+~~~
 %s`
 
 // extraTemplate carries the session's own instructions. It says plainly that
-// they win, because the caps above name specific numbers and a request like
-// "target forty words" is unfollowable next to a fifteen-word rule that does
-// not yield.
+// they win, because the guidance above names specific numbers and a request
+// like "one short line a turn" is unfollowable next to a forty-word summary
+// rule that does not yield.
 //
 // The precedence is scoped to style and length on purpose. Granting it over
 // "the rules above" also handed it the rule against speaking secrets and full
@@ -62,12 +97,13 @@ const extraTemplate = `
 ## Instructions for this session
 
 These were set for this session. They take precedence over the style and
-length rules above, including the word and line counts:
+length guidance above, including the sentence and word counts:
 
 %s
 
 They do not override the rule against speaking secrets, tokens, credentials,
-or full filesystem paths. That one holds however these are worded.
+full filesystem paths, or identifiers that are noise when heard. Those hold
+however these are worded.
 `
 
 // hookPayload is the slice of the hook event this cares about. Everything else
@@ -98,7 +134,10 @@ func runHook(stdin io.Reader, stdout io.Writer, store Store, env func(string) st
 	if text := store.Instructions(session); text != "" {
 		extra = fmt.Sprintf(extraTemplate, text)
 	}
-	fmt.Fprintf(stdout, instructionTemplate, shellQuote(wrapperPath), heredocDelimiter, heredocDelimiter, extra)
+	// The control script sits beside the say wrapper. Derived rather than
+	// passed, so the two can never point at different plugin roots.
+	controlPath := filepath.Join(filepath.Dir(wrapperPath), "run-ttsmode.sh")
+	fmt.Fprintf(stdout, instructionTemplate, shellQuote(wrapperPath), heredocDelimiter, heredocDelimiter, shellQuote(controlPath), extra)
 	return 0
 }
 

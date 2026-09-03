@@ -16,6 +16,7 @@ type fakeSynth struct {
 	got   string
 }
 
+// Speak records the text it was given and returns the canned audio or error.
 func (f *fakeSynth) Speak(text string) ([]byte, error) {
 	f.got = text
 	return f.audio, f.err
@@ -26,13 +27,17 @@ type fakePlayer struct {
 	err error
 }
 
+// Play records the audio it was given and returns the canned error.
 func (f *fakePlayer) Play(audio []byte) error {
 	f.got = audio
 	return f.err
 }
 
+// discardf is a logf that drops everything, for tests that do not care what
+// was logged.
 func discardf(string, ...any) {}
 
+// The happy path: text goes to the synth, audio goes to the player, exit 0.
 func TestSayRendersAndPlays(t *testing.T) {
 	synth := &fakeSynth{audio: []byte("mp3-bytes")}
 	player := &fakePlayer{}
@@ -62,6 +67,7 @@ func TestSayExitsZeroOnSynthFailure(t *testing.T) {
 	}
 }
 
+// A player that fails must not fail the turn: exit 0, failure in the log.
 func TestSayExitsZeroOnPlayerFailure(t *testing.T) {
 	synth := &fakeSynth{audio: []byte("mp3-bytes")}
 	player := &fakePlayer{err: errors.New("no audio device")}
@@ -71,6 +77,7 @@ func TestSayExitsZeroOnPlayerFailure(t *testing.T) {
 	}
 }
 
+// Whitespace-only text is nothing to speak: no API call, exit 0.
 func TestSayRejectsEmptyText(t *testing.T) {
 	synth := &fakeSynth{audio: []byte("mp3-bytes")}
 	if code := runSay("   ", synth, &fakePlayer{}, discardf); code != 0 {
@@ -81,6 +88,8 @@ func TestSayRejectsEmptyText(t *testing.T) {
 	}
 }
 
+// The request carries the key header, the default voice in the path, the
+// output format in the query, and the fixed model and voice settings.
 func TestElevenLabsPostsExpectedRequest(t *testing.T) {
 	var gotPath, gotKey, gotQuery string
 	var gotBody map[string]any
@@ -104,8 +113,8 @@ func TestElevenLabsPostsExpectedRequest(t *testing.T) {
 	if string(audio) != "audio" {
 		t.Fatalf("got %q", audio)
 	}
-	if !strings.Contains(gotPath, voiceID) {
-		t.Fatalf("path %q missing the voice id", gotPath)
+	if !strings.Contains(gotPath, defaultVoiceID) {
+		t.Fatalf("path %q missing the default voice id", gotPath)
 	}
 	if gotKey != "secret" {
 		t.Fatalf("key header %q", gotKey)
@@ -128,6 +137,7 @@ func TestElevenLabsPostsExpectedRequest(t *testing.T) {
 	}
 }
 
+// A non-200 status is an error, not audio.
 func TestElevenLabsReportsHTTPError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)

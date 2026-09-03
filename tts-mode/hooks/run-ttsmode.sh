@@ -23,7 +23,7 @@ set -euo pipefail
 # a build that will not compile.
 SUBCOMMAND="${1:-}"
 case "$SUBCOMMAND" in
-    on | off | status | control | set) USER_FACING=1 ;;
+    on | off | status | control | set | voice) USER_FACING=1 ;;
     *) USER_FACING=0 ;;
 esac
 

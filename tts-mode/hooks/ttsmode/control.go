@@ -28,7 +28,10 @@ const rewriteMarker = "NEEDS_INSTRUCTION"
 // Sending the current text along lets the rewrite step merge instead.
 const currentMarker = "CURRENT_INSTRUCTIONS"
 
-// keywords are the exact subcommands a person can type.
+// keywords are the subcommands the typo guard protects. "voice" is not among
+// them on purpose: the guard exists because a stray "of" could enable TTS with
+// junk instructions, and a stray "voic" cannot do that. Listing it refused
+// real requests such as "voices lower" as typos.
 var keywords = []string{"on", "off", "status"}
 
 // longestKeyword bounds how long a word can be and still read as a typo.
@@ -48,7 +51,7 @@ var longestKeyword = func() int {
 //
 // It reads stdin rather than an argument so the caller never has to build a
 // shell command containing the text.
-func runControl(stdin io.Reader, stdout, stderr io.Writer, store Store, session string) int {
+func runControl(stdin io.Reader, stdout, stderr io.Writer, store Store, session string, env func(string) string) int {
 	raw, err := io.ReadAll(io.LimitReader(stdin, maxInstructionBytes+1))
 	if err != nil {
 		fmt.Fprintf(stderr, "ttsmode: read request: %v\n", err)
@@ -64,22 +67,31 @@ func runControl(stdin io.Reader, stdout, stderr io.Writer, store Store, session 
 
 	switch strings.ToLower(first) {
 	case "":
-		return run([]string{"status"}, strings.NewReader(""), stdout, stderr, envFor(store, session))
+		return run([]string{"status"}, strings.NewReader(""), stdout, stderr, envFor(store, session, env))
 	case "off":
 		if rest != "" {
 			fmt.Fprintln(stderr, "ttsmode: off takes no instructions")
 			return 1
 		}
-		return run([]string{"off"}, strings.NewReader(""), stdout, stderr, envFor(store, session))
+		return run([]string{"off"}, strings.NewReader(""), stdout, stderr, envFor(store, session, env))
 	case "status":
 		if rest != "" {
 			fmt.Fprintln(stderr, "ttsmode: status takes no instructions")
 			return 1
 		}
-		return run([]string{"status"}, strings.NewReader(""), stdout, stderr, envFor(store, session))
+		return run([]string{"status"}, strings.NewReader(""), stdout, stderr, envFor(store, session, env))
+	case "voice":
+		// The subcommand only when what follows is exactly one id, or the
+		// word default. "voice lower and slower" is a request about how the
+		// voice should sound, and falls through to the rewrite step like any
+		// other sentence. A lone "voice" is a request too, and the rewrite
+		// step can ask what was meant.
+		if rest != "" && (validVoiceID(rest) || strings.EqualFold(rest, "default")) {
+			return run([]string{"voice", rest}, strings.NewReader(""), stdout, stderr, envFor(store, session, env))
+		}
 	case "on":
 		if rest == "" {
-			return run([]string{"on"}, strings.NewReader(""), stdout, stderr, envFor(store, session))
+			return run([]string{"on"}, strings.NewReader(""), stdout, stderr, envFor(store, session, env))
 		}
 		// Turn it on before handing the request off to be rewritten. The person
 		// said "on" plainly, so that half of the request should survive a rewrite
@@ -227,10 +239,12 @@ func indent(text string) string {
 	return strings.Join(lines, "\n")
 }
 
-// envFor rebuilds the environment the nested run needs, so control can reuse
-// the existing subcommands rather than duplicating their output and error
-// handling.
-func envFor(store Store, session string) func(string) string {
+// envFor pins the state directory and session for a nested run, so control
+// can reuse the existing subcommands rather than duplicating their output and
+// error handling. Everything else reads through to the real environment: a
+// status routed this way has to see TTSMODE_VOICE_ID, or it reports the
+// built-in default while an install-wide voice is what will speak.
+func envFor(store Store, session string, env func(string) string) func(string) string {
 	return func(name string) string {
 		switch name {
 		case "TTSMODE_STATE_DIR":
@@ -238,6 +252,6 @@ func envFor(store Store, session string) func(string) string {
 		case "CLAUDE_CODE_SESSION_ID":
 			return session
 		}
-		return ""
+		return env(name)
 	}
 }

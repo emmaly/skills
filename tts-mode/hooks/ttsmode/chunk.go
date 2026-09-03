@@ -14,10 +14,16 @@ import (
 // about five long spoken lines, the most a session has asked for.
 const maxSpokenChars = 1200
 
-// chunkChars is the largest piece sent to the API at once. Short pieces mean
+// chunkChars is the target size of a piece sent to the API. Short pieces mean
 // the first one is playing while the rest are still being synthesized, and a
 // failure loses one sentence rather than the whole turn.
 const chunkChars = 220
+
+// maxChunkChars is the ceiling. A sentence longer than the target but within
+// this is sent whole rather than split at a word, because a clip boundary in
+// the middle of a sentence is heard as the voice stopping at a random word.
+// Only a sentence longer than this is split at word boundaries.
+const maxChunkChars = 2 * chunkChars
 
 // speakable trims, caps, and splits text into pieces that each end on a
 // sentence or at worst a word. The old fixed-offset truncation ended lines in
@@ -47,8 +53,10 @@ func speakable(text string, logf func(string, ...any)) []string {
 		current.Reset()
 		currentLen = 0
 	}
+	// Sentences pack together up to the target. One sentence over the target
+	// but under the ceiling becomes a piece on its own.
 	for _, sentence := range sentences(text) {
-		for _, piece := range splitLong(sentence, chunkChars) {
+		for _, piece := range splitLong(sentence, maxChunkChars) {
 			n := utf8.RuneCountInString(piece)
 			if currentLen > 0 && currentLen+1+n > chunkChars {
 				flush()

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -60,10 +61,90 @@ func (s Store) path(session string) (string, error) {
 	return filepath.Join(s.sessionsDir(), session), nil
 }
 
+// voicePrefix introduces the voice on the first line of a session file, after
+// the timestamp. The first line is the one line instructions can never occupy,
+// so a stored instruction that happens to begin with "voice=" cannot be read as
+// the header. In the file rather than a sidecar: prune works from mtime, and a
+// sidecar would be pruned out from under a session whose main file Enabled
+// keeps refreshing.
+const voicePrefix = "voice="
+
+// ErrBadVoice is returned for a voice id that could not be a path segment of
+// the API URL. The id is typed by a person and sent in a request path.
+var ErrBadVoice = errors.New("invalid voice id")
+
 // Enable turns TTS on for a session, with optional freeform instructions that
 // shape what gets spoken. Calling it twice is not an error, and each call
 // replaces the instructions, so "on" with no text is how they are cleared.
+//
+// A voice already chosen for the session is carried through. It is a setting,
+// not an instruction, and clearing it on every "on" would have a person who
+// picked a voice and then asked for shorter lines lose the voice.
 func (s Store) Enable(session, instructions string) error {
+	return s.update(session, func(voice, _ string) (string, string) {
+		return voice, instructions
+	})
+}
+
+// SetVoice records a voice for the session and turns TTS on. An empty id
+// returns the session to the global default.
+func (s Store) SetVoice(session, voice string) error {
+	if voice != "" && !validVoiceID(voice) {
+		return fmt.Errorf("%w: %q", ErrBadVoice, voice)
+	}
+	return s.update(session, func(_, instructions string) (string, string) {
+		return voice, instructions
+	})
+}
+
+// update applies a change to a session's voice and instructions under a
+// lock. Each of Enable and SetVoice keeps the half it does not own, so two
+// of them running at once, say the rewrite step's set racing a voice change
+// the brief asked for, would each read the old file and the later rename
+// would discard the other's change. The lock serializes the read and the
+// write; writeAtomic still keeps concurrent readers from seeing a torn file.
+func (s Store) update(session string, change func(voice, instructions string) (string, string)) error {
+	if _, err := s.path(session); err != nil {
+		return err
+	}
+	return s.locked(func() error {
+		voice, instructions := s.read(session)
+		voice, instructions = change(voice, instructions)
+		return s.write(session, voice, instructions)
+	})
+}
+
+// locked runs fn holding the store's one lock. Disable takes it too, so an
+// off cannot land between an update's read and its write and be undone by
+// the write.
+func (s Store) locked(fn func() error) error {
+	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
+		return fmt.Errorf("create state dir: %w", err)
+	}
+	// The lock file sits beside the sessions directory, not in it, where a
+	// file named like a session would read as an enabled one.
+	lock, err := os.OpenFile(filepath.Join(s.Dir, "state.lock"), os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return fmt.Errorf("open state lock: %w", err)
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("lock state: %w", err)
+	}
+	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+	return fn()
+}
+
+// write lays the file out as one header line, then the instructions. The
+// header is the timestamp, followed by the voice when there is one. A file
+// from before the voice existed has a bare timestamp there and reads the
+// same.
+//
+// The write is atomic. Enable and SetVoice each read the file and write it
+// back, and the hook and detached say processes read it at any moment, so a
+// truncate-then-write would hand a concurrent reader an empty file: a turn
+// with no instructions and the default voice, with nothing in the log.
+func (s Store) write(session, voice, instructions string) error {
 	target, err := s.path(session)
 	if err != nil {
 		return err
@@ -71,11 +152,12 @@ func (s Store) Enable(session, instructions string) error {
 	if err := os.MkdirAll(s.sessionsDir(), 0o700); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
-	// First line is the timestamp, everything after it is the instructions.
-	// A file written before instructions existed has only the first line, and
-	// still reads correctly as enabled with none.
-	body := time.Now().UTC().Format(time.RFC3339) + "\n" + instructions
-	if err := os.WriteFile(target, []byte(body), 0o600); err != nil {
+	header := time.Now().UTC().Format(time.RFC3339)
+	if voice != "" {
+		header += " " + voicePrefix + voice
+	}
+	body := header + "\n" + instructions
+	if err := writeAtomic(target, []byte(body)); err != nil {
 		return fmt.Errorf("write state: %w", err)
 	}
 	return nil
@@ -85,19 +167,56 @@ func (s Store) Enable(session, instructions string) error {
 // there is none. Any error reads as none: the hook calls this on every prompt,
 // and losing the extra guidance is better than failing the turn.
 func (s Store) Instructions(session string) string {
+	_, instructions := s.read(session)
+	return instructions
+}
+
+// Voice returns the voice id chosen for the session, or empty when it should
+// use the default. Any error reads as the default, for the same reason as
+// Instructions.
+func (s Store) Voice(session string) string {
+	voice, _ := s.read(session)
+	return voice
+}
+
+// read splits a session file into its voice and instructions. The voice is
+// the "voice=" field on the first line; everything after that line is
+// instructions, whatever it starts with.
+func (s Store) read(session string) (voice, instructions string) {
 	target, err := s.path(session)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	body, err := os.ReadFile(target)
 	if err != nil {
-		return ""
+		return "", ""
 	}
-	_, rest, found := strings.Cut(string(body), "\n")
+	header, rest, found := strings.Cut(string(body), "\n")
 	if !found {
-		return ""
+		return "", ""
 	}
-	return strings.TrimSpace(rest)
+	for _, field := range strings.Fields(header) {
+		if id, ok := strings.CutPrefix(field, voicePrefix); ok && validVoiceID(id) {
+			voice = id
+		}
+	}
+	return voice, strings.TrimSpace(rest)
+}
+
+// validVoiceID accepts what ElevenLabs issues: ASCII letters and digits. The
+// id is spliced into a URL path, so anything else is refused rather than
+// escaped.
+func validVoiceID(id string) bool {
+	if id == "" || len(id) > 64 {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // Disable turns TTS off. A session that was never enabled is not an error.
@@ -106,10 +225,12 @@ func (s Store) Disable(session string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove state: %w", err)
-	}
-	return nil
+	return s.locked(func() error {
+		if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove state: %w", err)
+		}
+		return nil
+	})
 }
 
 // refreshAfter is how stale a session file may get before Enabled touches it.
