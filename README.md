@@ -126,21 +126,24 @@ Speaks short summaries of Claude's work aloud through ElevenLabs. Off by
 default.
 
 ```
-/tts on       turn it on for this session
-/tts off      turn it off
-/tts          report the current state
+/tts on           turn it on for this session
+/tts off          turn it off
+/tts              report the current state
+/tts voice <id>   use an ElevenLabs voice for this session only
 ```
 
-On means one spoken line when Claude starts multi-step work and one at the end
-of a turn, capped at three lines a turn and fifteen words a line. Off means the
-instruction is never injected, so no summary is even requested. The switch is
-per session, so enabling it in one terminal leaves the others silent, and
-background jobs never speak.
+On means Claude speaks a summary at the end of every turn, a line when it
+starts longer work, and a line at real checkpoints inside it. The written
+response is unchanged; speech is for someone listening with their eyes closed.
+Off means the instruction is never injected, so no summary is even requested.
+The switch is per session, so enabling it in one terminal leaves the others
+silent, and background jobs never speak.
 
 It needs an ElevenLabs API key in `~/.secrets/elevenlabs.env` and either `mpv`
-or `ffplay` on `PATH`. Billing is per character, so a three-line turn costs
-roughly 300 characters. `tts-mode/README.md` has the environment variables, the
-cost math, and why the spoken line is passed on stdin instead of as an argument.
+or `ffplay` on `PATH`. Billing is per character, so a typical turn costs
+roughly 500 to 700 characters. `tts-mode/README.md` has the environment
+variables, the cost math, and why the spoken line is passed on stdin instead of
+as an argument.
 
 ## Layout
 

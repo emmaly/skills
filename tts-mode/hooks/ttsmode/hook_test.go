@@ -41,7 +41,7 @@ func TestHookEmitsInstructionWhenEnabled(t *testing.T) {
 	// stated, not that it appears at a particular position in a sentence.
 	got := out.String()
 	lowered := strings.ToLower(got)
-	for _, want := range []string{"/plugin/hooks/tts-say.sh", "fifteen words", "three spoken lines"} {
+	for _, want := range []string{"/plugin/hooks/tts-say.sh", "/plugin/hooks/run-ttsmode.sh' voice", "forty to eighty words", "never read the written response aloud", "uuids, hashes"} {
 		if !strings.Contains(lowered, want) {
 			t.Fatalf("instruction missing %q, got:\n%s", want, got)
 		}

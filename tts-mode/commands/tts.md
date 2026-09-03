@@ -52,13 +52,23 @@ restating it:
   an instruction; "Speak once per turn, at the end" is.
 - Carry over anything about content, not only length: what to mention, what to
   leave out, tone, language.
-- Contradict the defaults outright when the request does. The defaults are
-  fifteen words a line and three lines a turn, and these instructions take
-  precedence over them, so a request for longer lines has to say the new
-  number.
-- Never write an instruction to speak secrets, tokens, credentials, or full
-  filesystem paths. That rule outranks these instructions, so drop the part of
-  a request that asks for it and keep the rest.
+- Contradict the defaults outright when the request does. The defaults are a
+  closing summary of two to four sentences (forty to eighty words), one line
+  when longer work starts, and one line at real checkpoints inside it. These
+  instructions take precedence over them, so a request for shorter or longer
+  speech has to say the new number.
+- Never write an instruction to speak secrets, tokens, credentials, full
+  filesystem paths, or identifiers that are noise when heard (UUIDs, hashes,
+  file ids). That rule outranks these instructions, so drop the part of a
+  request that asks for it and keep the rest.
+- A voice id in the request is a setting, not an instruction. Store it with
+  `voice` and leave it out of the instructions:
+
+  ```
+  bash "${CLAUDE_PLUGIN_ROOT}/hooks/run-ttsmode.sh" voice <id>
+  ```
+
+  If the voice was the whole request, stop there and print that output.
 - Keep it under ten lines. It is injected on every prompt.
 
 ## After either step
