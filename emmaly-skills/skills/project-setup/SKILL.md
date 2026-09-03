@@ -10,7 +10,8 @@ description: This skill should be used when starting a new project or setting up
 
 ## Documentation
 
-- Be thorough: usage examples, a config reference, and the architecture decisions worth remembering. Documentation is what makes a project resumable after months away, so write it for someone who has forgotten everything
+Documentation is what makes a project resumable after months away, so write it for someone who has forgotten everything: usage examples, a config reference, and the architecture decisions worth remembering. Where it goes:
+
 - `README.md`: surface-level getting-started info. Ensure LLMs can orient quickly from the README alone, with references to deeper docs. If a PRD exists, reference it from the README
 - `docs/PRD.md`: encourage creating a Product Requirements Document for new projects. Captures goals, scope, user stories, and constraints before implementation begins. Multi-feature projects split it into `docs/PRD/*.md` rather than one growing file
 - `docs/*.md`: everything else (architecture, design decisions, API docs, etc)

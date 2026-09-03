@@ -141,16 +141,17 @@ argument is named in the rule.
   where most of the length actually comes off.
 - **A new machine needs this plugin and nothing else, with one exception.** The
   `## Working style` bullets moved out of `~/.claude/CLAUDE.md` into
-  `standards/SKILL.md` on 2026-08-09, and that file is now empty. Install the
-  marketplace, enable `emmaly-skills`, and every universal rule loads.
-  `~/.claude/CLAUDE.md` is now empty as a result, and the dotfiles repo is no
-  longer required to get moving. **The exception is
-  Kubernetes**: the cluster conventions live in `~/Projects/kube`, so that repo
-  must be cloned for deployment work. Closing that gap is exactly the open
-  question in the Kubernetes to-do below: moving the conventions into the skill
-  would make the plugin genuinely self-sufficient. The tradeoff: `CLAUDE.md` used to load unconditionally,
-  whereas the hook only fires when the plugin is enabled. Put machine-specific
+  `standards/SKILL.md` on 2026-08-09. Install the marketplace, enable
+  `emmaly-skills`, and every universal rule loads; the dotfiles repo is no
+  longer required to get moving. `~/.claude/CLAUDE.md` now holds only
+  machine-local instructions (as of 2026-09-03, the `~/Projects/README.md`
+  index rules). The tradeoff: `CLAUDE.md` used to load unconditionally, whereas
+  the hook only fires when the plugin is enabled. Put machine-specific
   instructions in `CLAUDE.md`; put anything universal in the skill.
+  **The exception is Kubernetes**: the cluster conventions live in
+  `~/Projects/kube`, so that repo must be cloned for deployment work. Closing
+  that gap is the open question in the Kubernetes to-do below: moving the
+  conventions into the skill would make the plugin self-sufficient.
 
 ## Releasing a change (do not skip)
 
@@ -242,5 +243,7 @@ debugging anything else. For iterating without a release, run
   this plugin just spent a session removing.
 - `standards/SKILL.md` → "Deployment Targets" now names Kubernetes as the
   default and carries the shape (project-repo manifests, `ghcr.io/emmaly/*`
-  images, Longhorn storage, `route.sh` + Ingress). Revisit once the skill exists,
+  images, Longhorn storage) and the exposure ladder (MetalLB for LAN, the
+  Tailscale operator for the tailnet, `route.sh` + Ingress for public). Revisit
+  once the skill exists,
   so the standards can point at it instead of at `~/Projects/kube` directly.
