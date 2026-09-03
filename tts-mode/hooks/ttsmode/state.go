@@ -60,10 +60,12 @@ func (s Store) path(session string) (string, error) {
 	return filepath.Join(s.sessionsDir(), session), nil
 }
 
-// voicePrefix marks the one header line a session file may carry between the
-// timestamp and the instructions. A header rather than a sidecar file: prune
-// works from mtime, and a sidecar would be pruned out from under a session
-// whose main file Enabled keeps refreshing.
+// voicePrefix introduces the voice on the first line of a session file, after
+// the timestamp. The first line is the one line instructions can never occupy,
+// so a stored instruction that happens to begin with "voice=" cannot be read as
+// the header. In the file rather than a sidecar: prune works from mtime, and a
+// sidecar would be pruned out from under a session whose main file Enabled
+// keeps refreshing.
 const voicePrefix = "voice="
 
 // ErrBadVoice is returned for a voice id that could not be a path segment of
@@ -78,7 +80,8 @@ var ErrBadVoice = errors.New("invalid voice id")
 // not an instruction, and clearing it on every "on" would have a person who
 // picked a voice and then asked for shorter lines lose the voice.
 func (s Store) Enable(session, instructions string) error {
-	return s.write(session, s.Voice(session), instructions)
+	voice, _ := s.read(session)
+	return s.write(session, voice, instructions)
 }
 
 // SetVoice records a voice for the session and turns TTS on. An empty id
@@ -87,12 +90,19 @@ func (s Store) SetVoice(session, voice string) error {
 	if voice != "" && !validVoiceID(voice) {
 		return fmt.Errorf("%w: %q", ErrBadVoice, voice)
 	}
-	return s.write(session, voice, s.Instructions(session))
+	_, instructions := s.read(session)
+	return s.write(session, voice, instructions)
 }
 
-// write lays the file out as timestamp, optional voice header, instructions.
-// A file written before either header existed has only the first line, and
-// still reads correctly as enabled with none.
+// write lays the file out as one header line, then the instructions. The
+// header is the timestamp, followed by the voice when there is one. A file
+// from before the voice existed has a bare timestamp there and reads the
+// same.
+//
+// The write is atomic. Enable and SetVoice each read the file and write it
+// back, and the hook and detached say processes read it at any moment, so a
+// truncate-then-write would hand a concurrent reader an empty file: a turn
+// with no instructions and the default voice, with nothing in the log.
 func (s Store) write(session, voice, instructions string) error {
 	target, err := s.path(session)
 	if err != nil {
@@ -101,12 +111,12 @@ func (s Store) write(session, voice, instructions string) error {
 	if err := os.MkdirAll(s.sessionsDir(), 0o700); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
-	body := time.Now().UTC().Format(time.RFC3339) + "\n"
+	header := time.Now().UTC().Format(time.RFC3339)
 	if voice != "" {
-		body += voicePrefix + voice + "\n"
+		header += " " + voicePrefix + voice
 	}
-	body += instructions
-	if err := os.WriteFile(target, []byte(body), 0o600); err != nil {
+	body := header + "\n" + instructions
+	if err := writeAtomic(target, []byte(body)); err != nil {
 		return fmt.Errorf("write state: %w", err)
 	}
 	return nil
@@ -128,9 +138,9 @@ func (s Store) Voice(session string) string {
 	return voice
 }
 
-// read splits a session file into its voice header and instructions. The
-// header is recognized by its prefix, so a file from before the header existed
-// reads its second line as instructions, as it always did.
+// read splits a session file into its voice and instructions. The voice is
+// the "voice=" field on the first line; everything after that line is
+// instructions, whatever it starts with.
 func (s Store) read(session string) (voice, instructions string) {
 	target, err := s.path(session)
 	if err != nil {
@@ -140,18 +150,13 @@ func (s Store) read(session string) (voice, instructions string) {
 	if err != nil {
 		return "", ""
 	}
-	_, rest, found := strings.Cut(string(body), "\n")
+	header, rest, found := strings.Cut(string(body), "\n")
 	if !found {
 		return "", ""
 	}
-	// The line is a header only when it parses as an id. An instruction that
-	// happens to start with "voice=" is otherwise prose, and consuming it
-	// would silently drop the first line someone wrote.
-	if strings.HasPrefix(rest, voicePrefix) {
-		line, after, _ := strings.Cut(rest, "\n")
-		if id := strings.TrimSpace(strings.TrimPrefix(line, voicePrefix)); validVoiceID(id) {
+	for _, field := range strings.Fields(header) {
+		if id, ok := strings.CutPrefix(field, voicePrefix); ok && validVoiceID(id) {
 			voice = id
-			rest = after
 		}
 	}
 	return voice, strings.TrimSpace(rest)

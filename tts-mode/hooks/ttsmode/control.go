@@ -28,8 +28,11 @@ const rewriteMarker = "NEEDS_INSTRUCTION"
 // Sending the current text along lets the rewrite step merge instead.
 const currentMarker = "CURRENT_INSTRUCTIONS"
 
-// keywords are the exact subcommands a person can type.
-var keywords = []string{"on", "off", "status", "voice"}
+// keywords are the subcommands the typo guard protects. "voice" is not among
+// them on purpose: the guard exists because a stray "of" could enable TTS with
+// junk instructions, and a stray "voic" cannot do that. Listing it refused
+// real requests such as "voices lower" as typos.
+var keywords = []string{"on", "off", "status"}
 
 // longestKeyword bounds how long a word can be and still read as a typo.
 // Derived rather than written down, so adding a keyword cannot leave the cap
@@ -78,14 +81,14 @@ func runControl(stdin io.Reader, stdout, stderr io.Writer, store Store, session 
 		}
 		return run([]string{"status"}, strings.NewReader(""), stdout, stderr, envFor(store, session))
 	case "voice":
-		// Exactly one word: an id, or "default". A sentence after it would be
-		// a request, and mixing the two in one command is how an id ends up
-		// stored as prose or prose stored as an id.
-		if rest == "" || strings.ContainsAny(rest, " \t\n\r") {
-			fmt.Fprintln(stderr, "ttsmode: voice takes one voice id, or the word default")
-			return 1
+		// The subcommand only when what follows is exactly one id, or the
+		// word default. "voice lower and slower" is a request about how the
+		// voice should sound, and falls through to the rewrite step like any
+		// other sentence. A lone "voice" is a request too, and the rewrite
+		// step can ask what was meant.
+		if rest != "" && (validVoiceID(rest) || strings.EqualFold(rest, "default")) {
+			return run([]string{"voice", rest}, strings.NewReader(""), stdout, stderr, envFor(store, session))
 		}
-		return run([]string{"voice", rest}, strings.NewReader(""), stdout, stderr, envFor(store, session))
 	case "on":
 		if rest == "" {
 			return run([]string{"on"}, strings.NewReader(""), stdout, stderr, envFor(store, session))

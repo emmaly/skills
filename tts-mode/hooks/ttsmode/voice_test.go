@@ -88,19 +88,85 @@ func TestVoiceOnLegacyStateFile(t *testing.T) {
 	}
 }
 
-// An instruction that starts with the header prefix but is not an id is
-// prose, and must not be eaten as a header.
+// Instructions can start with anything, including text shaped exactly like
+// the voice field, because the voice lives on the header line they never
+// occupy.
 func TestInstructionsStartingWithVoicePrefixAreKept(t *testing.T) {
+	for _, want := range []string{"voice=warm and slow\nsay which file", "voice=Zoe\nkeep it short", "voice=Zoe"} {
+		store := Store{Dir: t.TempDir()}
+		if err := store.Enable("abc", want); err != nil {
+			t.Fatalf("enable: %v", err)
+		}
+		if got := store.Voice("abc"); got != "" {
+			t.Fatalf("prose read as a voice: %q", got)
+		}
+		if got := store.Instructions("abc"); got != want {
+			t.Fatalf("got %q, want %q", got, want)
+		}
+		if err := store.SetVoice("abc", "5N1BjZ10t6GcJUhZCP40"); err != nil {
+			t.Fatalf("set voice: %v", err)
+		}
+		if got := store.Instructions("abc"); got != want {
+			t.Fatalf("set voice changed the instructions: %q", got)
+		}
+	}
+}
+
+// An empty argument is a usage error, not a way to turn a session on.
+func TestVoiceSubcommandRejectsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	env := envWith(map[string]string{"CLAUDE_CODE_SESSION_ID": "s", "TTSMODE_STATE_DIR": dir})
+	var out bytes.Buffer
+	if code := run([]string{"voice", ""}, strings.NewReader(""), &out, &out, env); code == 0 {
+		t.Fatal("empty voice id accepted")
+	}
+	if (Store{Dir: dir}).Enabled("s") {
+		t.Fatal("empty voice id enabled the session")
+	}
+}
+
+func TestResolveVoiceOrder(t *testing.T) {
 	store := Store{Dir: t.TempDir()}
-	want := "voice=warm and slow\nsay which file"
-	if err := store.Enable("abc", want); err != nil {
-		t.Fatalf("enable: %v", err)
+	vars := map[string]string{}
+	env := envWith(vars)
+
+	if voice, source, warning := resolveVoice(store, "s", env); voice != defaultVoiceID || source != "default" || warning != "" {
+		t.Fatalf("got %q %q %q", voice, source, warning)
 	}
-	if got := store.Voice("abc"); got != "" {
-		t.Fatalf("prose read as a voice: %q", got)
+	vars["TTSMODE_VOICE_ID"] = "not-an-id"
+	if voice, source, warning := resolveVoice(store, "s", env); voice != defaultVoiceID || source != "default" || warning == "" {
+		t.Fatalf("bad global id: got %q %q %q", voice, source, warning)
 	}
-	if got := store.Instructions("abc"); got != want {
-		t.Fatalf("got %q, want %q", got, want)
+	vars["TTSMODE_VOICE_ID"] = "GlobalVoice0000000001"
+	if voice, source, _ := resolveVoice(store, "s", env); voice != "GlobalVoice0000000001" || source != "TTSMODE_VOICE_ID" {
+		t.Fatalf("global id: got %q %q", voice, source)
+	}
+	if err := store.SetVoice("s", "SessionVoice000000001"); err != nil {
+		t.Fatalf("set voice: %v", err)
+	}
+	if voice, source, _ := resolveVoice(store, "s", env); voice != "SessionVoice000000001" || source != "this session" {
+		t.Fatalf("session id: got %q %q", voice, source)
+	}
+}
+
+// status shows which voice will speak and why, including a rejected
+// install-wide id, since that is where a person looks.
+func TestStatusReportsEffectiveVoice(t *testing.T) {
+	dir := t.TempDir()
+	vars := map[string]string{"CLAUDE_CODE_SESSION_ID": "s", "TTSMODE_STATE_DIR": dir, "TTSMODE_VOICE_ID": "bad id"}
+	env := envWith(vars)
+	var out bytes.Buffer
+	run([]string{"on"}, strings.NewReader(""), &out, &out, env)
+	out.Reset()
+	run([]string{"status"}, strings.NewReader(""), &out, &out, env)
+	if !strings.Contains(out.String(), "Warning: TTSMODE_VOICE_ID") {
+		t.Fatalf("no warning for a bad global id:\n%s", out.String())
+	}
+	vars["TTSMODE_VOICE_ID"] = "GlobalVoice0000000001"
+	out.Reset()
+	run([]string{"status"}, strings.NewReader(""), &out, &out, env)
+	if !strings.Contains(out.String(), "Voice: GlobalVoice0000000001 (TTSMODE_VOICE_ID)") {
+		t.Fatalf("global voice not reported:\n%s", out.String())
 	}
 }
 
@@ -118,7 +184,7 @@ func TestControlVoice(t *testing.T) {
 	}
 
 	code, out, _ = control(t, dir, "s1", "status")
-	if code != 0 || !strings.Contains(out, "Voice for this session: 5N1BjZ10t6GcJUhZCP40") {
+	if code != 0 || !strings.Contains(out, "Voice: 5N1BjZ10t6GcJUhZCP40 (this session)") {
 		t.Fatalf("status does not report the voice: %q", out)
 	}
 
@@ -134,16 +200,22 @@ func TestControlVoice(t *testing.T) {
 	}
 }
 
-// One word only. A sentence after "voice" is a request, and "voic" is a typo.
-func TestControlVoiceRejectsProseAndTypos(t *testing.T) {
+// Only "voice <id>" and "voice default" are the subcommand. Anything else
+// starting with the word is a request about the voice and goes to the
+// rewrite step, and words near "voice" are not typos of a subcommand.
+func TestControlVoiceProseIsARequest(t *testing.T) {
 	dir := t.TempDir()
-	for _, raw := range []string{"voice", "voice please use 5N1BjZ10t6GcJUhZCP40", "voic", "voice ../x"} {
-		if code, _, _ := control(t, dir, "s1", raw); code == 0 {
-			t.Fatalf("%q accepted", raw)
+	for _, raw := range []string{"voice", "voice lower and slower", "voice please use 5N1BjZ10t6GcJUhZCP40", "voice ../x", "voices", "voic"} {
+		code, out, errOut := control(t, dir, "s1", raw)
+		if code != 0 {
+			t.Fatalf("%q refused: %s", raw, errOut)
+		}
+		if !strings.HasPrefix(out, rewriteMarker) {
+			t.Fatalf("%q not handed to the rewrite step: %q", raw, out)
 		}
 	}
-	if (Store{Dir: dir}).Enabled("s1") {
-		t.Fatal("a refused voice command enabled the session")
+	if got := (Store{Dir: dir}).Voice("s1"); got != "" {
+		t.Fatalf("prose stored as a voice: %q", got)
 	}
 }
 

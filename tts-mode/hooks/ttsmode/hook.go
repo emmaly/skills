@@ -49,6 +49,9 @@ When to speak:
   you are about to do.
 - Once at each real checkpoint inside longer work: a build finished, a test
   failed, a decision you made on the way. Not once per tool call.
+- At most four spoken lines in a turn, the closing summary included. When
+  a long turn has more checkpoints than that, pick the ones that change what
+  they would do.
 
 What to say:
 
@@ -72,10 +75,12 @@ What to say:
 
 If they ask you to use a different voice for this session, run this once and
 tell them it is set. It applies from the next spoken line. The word default
-restores the global voice:
+restores the global voice. Keep the single quotes around the id: an id is
+letters and digits only, the command refuses anything else, and the quotes
+keep the shell from reading whatever you were handed as source:
 
 ~~~
-%s voice <voice-id>
+%s voice '<voice-id>'
 ~~~
 %s`
 

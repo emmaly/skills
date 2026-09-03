@@ -69,7 +69,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		fmt.Fprintln(stderr, `usage: ttsmode say "<text>"`)
 		return 2
 	}
-	if command == "voice" && len(rest) != 1 {
+	// An empty argument is a usage error, not "default": a script passing an
+	// unset variable must not turn speech on for a session that was off.
+	if command == "voice" && (len(rest) != 1 || strings.TrimSpace(rest[0]) == "") {
 		fmt.Fprintln(stderr, `usage: ttsmode voice <voice-id>|default`)
 		return 2
 	}
@@ -115,8 +117,15 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	case "status":
 		if store.Enabled(session) {
 			fmt.Fprintln(stdout, "Spoken output is ON for this session.")
-			if voice := store.Voice(session); voice != "" {
-				fmt.Fprintf(stdout, "Voice for this session: %s\n", voice)
+			// The effective voice, not only the session's own choice, so
+			// someone looking here can tell which voice will speak and
+			// whether an install-wide id was rejected.
+			voice, source, warning := resolveVoice(store, session, env)
+			if warning != "" {
+				fmt.Fprintf(stdout, "Warning: %s\n", warning)
+			}
+			if source != "default" {
+				fmt.Fprintf(stdout, "Voice: %s (%s)\n", voice, source)
 			}
 			if extra := store.Instructions(session); extra != "" {
 				fmt.Fprintf(stdout, "\nInstructions for this session:\n\n%s\n", indent(extra))
@@ -176,20 +185,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		// Join rather than take the first argument. The wrapper passes the line
 		// as one argument, but a hand-run call that splits it would otherwise
 		// be truncated at the first space with the rest silently dropped.
-		// The session's own voice wins over the install-wide override, which
-		// wins over the built-in default. An unusable install-wide id is logged
-		// and skipped rather than sent, so the log names the setting instead of
-		// a 404 from the API.
-		voice := store.Voice(session)
-		if voice == "" {
-			if global := strings.TrimSpace(env("TTSMODE_VOICE_ID")); global != "" {
-				if validVoiceID(global) {
-					voice = global
-				} else {
-					logf("TTSMODE_VOICE_ID is not a voice id, using the default: %q", global)
-				}
-			}
-		}
+		// A rejected install-wide id is not logged here: it would repeat on
+		// every say and push real failures out of the capped log. status
+		// reports it where a person is looking.
+		voice, _, _ := resolveVoice(store, session, env)
 		client := ElevenLabs{Key: key, BaseURL: env("TTSMODE_API_BASE"), Voice: voice}
 		queue := Queue{Dir: filepath.Join(store.Dir, "queue")}
 		return runSayQueued(strings.Join(rest, " "), client, CommandPlayer{}, queue, logf)
@@ -236,6 +235,24 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 	logf("subcommand %q passed validation but has no handler", command)
 	fmt.Fprintf(stderr, "ttsmode: subcommand %q passed validation but has no handler\n", command)
 	return 2
+}
+
+// resolveVoice is the one place voice precedence is decided: the session's
+// own choice, then TTSMODE_VOICE_ID for the whole install, then the built-in
+// default. It reports which of the three won, and a warning when the
+// install-wide id was set but unusable, so status can show it and say can
+// stay quiet about it.
+func resolveVoice(store Store, session string, env func(string) string) (voice, source, warning string) {
+	if voice := store.Voice(session); voice != "" {
+		return voice, "this session", ""
+	}
+	if global := strings.TrimSpace(env("TTSMODE_VOICE_ID")); global != "" {
+		if validVoiceID(global) {
+			return global, "TTSMODE_VOICE_ID", ""
+		}
+		warning = fmt.Sprintf("TTSMODE_VOICE_ID is not a voice id, using the default: %q", global)
+	}
+	return defaultVoiceID, "default", warning
 }
 
 // takeSessionFlag pulls an optional --session out of the front of the argument

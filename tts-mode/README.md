@@ -34,7 +34,8 @@ type. The written response is unchanged. On top of it, Claude speaks a summary
 at the end of every turn (two to four sentences, forty to eighty words), one
 line when it starts work that will take several tool calls, and one line at
 real checkpoints inside that work, such as a failed test or a decision made on
-the way. It is a summary, never a reading of the screen. A session's own
+the way, with a ceiling of four spoken lines a turn. It is a summary, never a
+reading of the screen. A session's own
 instructions can change any of those sizes; the code caps one say at 1,200
 characters, cut at a word boundary, never inside a word. Off means the
 instruction is never injected, so no summary is even requested. Nothing else
@@ -99,7 +100,9 @@ before the allowance is gone, and per-character billing after it. A session
 asking for shorter lines brings that down.
 
 Bitrate and voice settings do not affect price. The voice's rate multiplier
-does, which is why this one is pinned to 1.0.
+does. The default voice has a rate of 1.0, and the math above assumes that;
+a voice chosen with `TTSMODE_VOICE_ID` or `/tts voice` with a rate of 2.0
+doubles it, and nothing in the code checks.
 
 Check your own allowance and usage with:
 
