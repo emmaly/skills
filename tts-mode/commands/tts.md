@@ -62,10 +62,12 @@ restating it:
   file ids). That rule outranks these instructions, so drop the part of a
   request that asks for it and keep the rest.
 - A voice id in the request is a setting, not an instruction. Store it with
-  `voice` and leave it out of the instructions:
+  `voice` and leave it out of the instructions. Keep the single quotes: an id
+  is letters and digits only, the command refuses anything else, and the
+  quotes keep the shell from reading pasted text as source:
 
   ```
-  bash "${CLAUDE_PLUGIN_ROOT}/hooks/run-ttsmode.sh" voice <id>
+  bash "${CLAUDE_PLUGIN_ROOT}/hooks/run-ttsmode.sh" voice '<id>'
   ```
 
   If the voice was the whole request, stop there and print that output.
