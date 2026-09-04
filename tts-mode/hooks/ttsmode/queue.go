@@ -42,10 +42,6 @@ const (
 	pieceWait = 45 * time.Second
 	// pollEvery is the drainer's sleep while waiting on a piece or the lock.
 	pollEvery = 100 * time.Millisecond
-	// pieceGap is the silence between pieces. Each piece is its own clip, and
-	// the API leaves less room after a final sentence than it puts between
-	// sentences inside one clip, so back-to-back clips sound mashed together.
-	pieceGap = 350 * time.Millisecond
 )
 
 // Queue is the on-disk queue for one user.
@@ -114,6 +110,7 @@ func writeAtomic(path string, data []byte) error {
 // a convenience, and no failure of it should fail the turn that asked for it.
 // Failures are logged and also recorded for the next say to report.
 func runSayQueued(text string, synth Synth, player Player, q Queue, logf func(string, ...any)) int {
+	synth = paddedSynth{synth, logf}
 	chunks := speakable(text, logf)
 	if len(chunks) == 0 {
 		logf("empty text, nothing to speak")
@@ -227,8 +224,6 @@ func (q Queue) drainLocked(player Player, logf func(string, ...any)) {
 		}
 		q.playTicket(t, player, logf)
 		_ = os.Remove(q.countPath(t))
-		// The same breath between two lines as between two pieces.
-		time.Sleep(pieceGap)
 	}
 }
 
@@ -277,12 +272,11 @@ func (q Queue) playTicket(t int64, player Player, logf func(string, ...any)) {
 			audio, err := os.ReadFile(piece)
 			if err == nil {
 				os.Remove(piece)
+				// No sleep between pieces. Each clip carries tailPad of
+				// silence from synthesis, and that is the gap.
 				if err := player.Play(audio); err != nil {
 					logf("playback failed: %v", err)
 					q.noteFailure(fmt.Sprintf("playback failed: %v", err))
-				}
-				if i+1 < n {
-					time.Sleep(pieceGap)
 				}
 				deadline = time.Now().Add(pieceWait)
 				break

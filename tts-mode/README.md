@@ -132,11 +132,17 @@ then detaches a job that splits the text into pieces at sentence ends (about
 220 characters each, and a single sentence up to 440 is kept whole rather
 than cut at a word), synthesizes them three at a time, and drops them in a
 queue under `~/.claude/tts-mode/queue`. Whoever holds the player lock plays
-tickets in the order they were requested, one piece at a time with a short
-pause between clips, waiting for a piece that is still being synthesized. The first piece plays while the rest
+tickets in the order they were requested, one piece at a time, waiting for a
+piece that is still being synthesized. The first piece plays while the rest
 are still in flight, and two sessions never talk over each other. A piece
 that never arrives is abandoned after 45 seconds so a crashed job cannot
 wedge the queue.
+
+Every clip ends with 350 ms of silence, appended after synthesis as silent
+MP3 frames that match the stream's own header. That is the gap between clips
+and the tail after the last one; the queue adds no pause of its own. The
+comment on `tailPad` in `hooks/ttsmode/silence.go` records why the pad lives
+there and not in the text or the player.
 
 ## When it goes quiet
 
@@ -171,5 +177,6 @@ for a voice that talks while you work. Both fields come from
     hooks/tts-say-detached.sh  the detached half, run under setsid
     hooks/ttsmode/chunk.go  splits text at sentences and words, applies the cap
     hooks/ttsmode/queue.go  tickets, concurrent synthesis, ordered playback
+    hooks/ttsmode/silence.go  appends the silent tail to each clip
     hooks/ttsmode/          the Go source
     commands/tts.md         the /tts slash command

@@ -46,6 +46,7 @@ type Player interface {
 // fallback and the unit under test. It always returns 0: speech is a
 // convenience, and no failure of it should fail the turn that asked for it.
 func runSay(text string, synth Synth, player Player, logf func(string, ...any)) int {
+	synth = paddedSynth{synth, logf}
 	chunks := speakable(text, logf)
 	if len(chunks) == 0 {
 		logf("empty text, nothing to speak")
