@@ -138,13 +138,11 @@ are still in flight, and two sessions never talk over each other. A piece
 that never arrives is abandoned after 45 seconds so a crashed job cannot
 wedge the queue.
 
-Every clip ends with 350 ms of silence added by the player (mpv's `apad`
-filter; after ffplay, which cannot pad, the same wait). The API ends a clip
-within about 0.2 seconds of the last sound, so without the pad clips ran into
-each other and the last one stopped as if cut off. The pad is in the player
-rather than the text on purpose: Eleven v3 ignores SSML break tags, a
-trailing ellipsis added nothing, and `[pause]` added about three seconds in
-two runs out of five and nothing in the other three.
+Every clip ends with 350 ms of silence, appended after synthesis as silent
+MP3 frames that match the stream's own header. That is the gap between clips
+and the tail after the last one; the queue adds no pause of its own. The
+comment on `tailPad` in `hooks/ttsmode/silence.go` records why the pad lives
+there and not in the text or the player.
 
 ## When it goes quiet
 
@@ -179,5 +177,6 @@ for a voice that talks while you work. Both fields come from
     hooks/tts-say-detached.sh  the detached half, run under setsid
     hooks/ttsmode/chunk.go  splits text at sentences and words, applies the cap
     hooks/ttsmode/queue.go  tickets, concurrent synthesis, ordered playback
+    hooks/ttsmode/silence.go  appends the silent tail to each clip
     hooks/ttsmode/          the Go source
     commands/tts.md         the /tts slash command

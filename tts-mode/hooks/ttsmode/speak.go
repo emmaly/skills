@@ -166,40 +166,12 @@ func readAllLimited(resp *http.Response) ([]byte, error) {
 // it, silently, with nothing in the log because nothing failed.
 const playTimeout = 60 * time.Second
 
-// tailPad is the silence appended to every clip at playback. The API ends a
-// clip within about 0.2 seconds of the last sound, so back-to-back clips
-// sound mashed together and the final clip stops as if cut off, with the
-// audio sink sometimes dropping the last buffer as the player exits. Padding
-// inside the player fixes both: the real audio is flushed before exit, and
-// the gap between clips comes for free, so the queue needs no sleep of its
-// own.
-//
-// Padding here rather than in the text was measured and rejected. Eleven v3
-// ignores SSML break tags, a trailing ellipsis added nothing in three runs,
-// and "[pause]" added about three seconds in two runs out of five and nothing
-// in the other three.
-const tailPad = 350 * time.Millisecond
-
-// playerCommands are the players to try, in order, each with the arguments
-// that play one file and exit. mpv appends tailPad through its filter graph.
-// ffplay cannot: with -autoexit it stops at the end of the input, so the
-// padding filter never gets to run, and Play sleeps the same amount after it
-// instead.
-func playerCommands(file string) [][]string {
-	pad := fmt.Sprintf("--af=lavfi=[apad=pad_dur=%.3f]", tailPad.Seconds())
-	return [][]string{
-		{"mpv", "--no-video", "--no-terminal", "--really-quiet", pad, file},
-		{"ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", file},
-	}
-}
-
 // CommandPlayer writes the audio to a temporary file and hands it to the first
 // player found on the system.
 type CommandPlayer struct{}
 
 // Play writes the audio to a temporary file and plays it with mpv, or ffplay
-// when mpv is missing or fails, each bounded by playTimeout. Every clip ends
-// with tailPad of silence either way.
+// when mpv is missing or fails, each bounded by playTimeout.
 func (CommandPlayer) Play(audio []byte) error {
 	file, err := os.CreateTemp("", "ttsmode-*.mp3")
 	if err != nil {
@@ -220,20 +192,21 @@ func (CommandPlayer) Play(audio []byte) error {
 	// logging the same mpv failure forever while an installed ffplay that
 	// would have worked is never tried.
 	var lastErr error
-	for _, candidate := range playerCommands(file.Name()) {
+	for _, candidate := range [][]string{
+		{"mpv", "--no-video", "--no-terminal", "--really-quiet"},
+		{"ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"},
+	} {
 		path, err := exec.LookPath(candidate[0])
 		if err != nil {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), playTimeout)
-		err = exec.CommandContext(ctx, path, candidate[1:]...).Run()
+		args := append(candidate[1:], file.Name())
+		err = exec.CommandContext(ctx, path, args...).Run()
 		timedOut := ctx.Err() != nil
 		cancel()
 
 		if err == nil {
-			if candidate[0] != "mpv" {
-				time.Sleep(tailPad)
-			}
 			return nil
 		}
 		if timedOut {

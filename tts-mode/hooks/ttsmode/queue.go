@@ -271,8 +271,8 @@ func (q Queue) playTicket(t int64, player Player, logf func(string, ...any)) {
 			audio, err := os.ReadFile(piece)
 			if err == nil {
 				os.Remove(piece)
-				// No sleep between pieces: the player pads every clip with
-				// tailPad, which is the gap.
+				// No sleep between pieces. Each clip carries tailPad of
+				// silence from synthesis, and that is the gap.
 				if err := player.Play(audio); err != nil {
 					logf("playback failed: %v", err)
 					q.noteFailure(fmt.Sprintf("playback failed: %v", err))

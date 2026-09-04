@@ -195,7 +195,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, env func(stri
 		voice, _, _ := resolveVoice(store, session, env)
 		client := ElevenLabs{Key: key, BaseURL: env("TTSMODE_API_BASE"), Voice: voice}
 		queue := Queue{Dir: filepath.Join(store.Dir, "queue")}
-		return runSayQueued(strings.Join(rest, " "), client, CommandPlayer{}, queue, logf)
+		return runSayQueued(strings.Join(rest, " "), paddedSynth{client}, CommandPlayer{}, queue, logf)
 
 	case "failures":
 		// The wrapper runs this in the foreground before backgrounding a say,
