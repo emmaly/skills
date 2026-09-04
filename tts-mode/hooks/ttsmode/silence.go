@@ -71,15 +71,12 @@ func firstFrame(audio []byte) (header [4]byte, frameLen int, frameDur time.Durat
 		i = 10 + size
 	}
 	for ; i+4 <= len(audio); i++ {
-		if !isSync(audio[i:]) {
-			continue
-		}
-		frameLen, frameDur, ok = frameShape(audio[i : i+4])
+		frameLen, frameDur, ok = headerAt(audio, i)
 		if !ok {
 			continue
 		}
-		next := i + frameLen + int(audio[i+2]>>1&1)
-		if next != len(audio) && !(next < len(audio) && isSync(audio[next:])) {
+		next := i + frameLen + paddingAt(audio, i)
+		if next != len(audio) && !secondFrameFits(audio, next) {
 			continue
 		}
 		copy(header[:], audio[i:i+4])
@@ -88,9 +85,26 @@ func firstFrame(audio []byte) (header [4]byte, frameLen int, frameDur time.Durat
 	return header, 0, 0, false
 }
 
-// isSync reports whether b starts with the eleven-bit frame sync.
-func isSync(b []byte) bool {
-	return len(b) >= 2 && b[0] == 0xff && b[1]&0xe0 == 0xe0
+// headerAt parses a frame header at offset i: sync bits present and every
+// field valid. ok is false when fewer than four bytes remain.
+func headerAt(audio []byte, i int) (frameLen int, frameDur time.Duration, ok bool) {
+	if i+4 > len(audio) || audio[i] != 0xff || audio[i+1]&0xe0 != 0xe0 {
+		return 0, 0, false
+	}
+	return frameShape(audio[i : i+4])
+}
+
+// paddingAt is the extra byte a frame carries when its padding bit is set.
+func paddingAt(audio []byte, i int) int {
+	return int(audio[i+2] >> 1 & 1)
+}
+
+// secondFrameFits reports whether a whole, valid frame starts at offset i.
+// Two sync bytes are not enough: audio can contain them, and a header
+// whose frame runs past the end of the stream is not a frame.
+func secondFrameFits(audio []byte, i int) bool {
+	frameLen, _, ok := headerAt(audio, i)
+	return ok && i+frameLen+paddingAt(audio, i) <= len(audio)
 }
 
 // frameShape decodes a Layer III frame header into its unpadded byte length

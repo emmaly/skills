@@ -130,6 +130,26 @@ func TestPadSilenceRejectsLookalikeRunningPastTheEnd(t *testing.T) {
 	}
 }
 
+// Two sync bytes after a frame do not make a second frame. The second header
+// has to parse and its whole frame has to fit, or the first is a lookalike.
+func TestPadSilenceRequiresAWholeSecondFrame(t *testing.T) {
+	one := clip(1)[16:]
+	for name, tail := range map[string][]byte{
+		"bare sync":        {0xff, 0xe0},
+		"invalid header":   {0xff, 0xfb, 0xf0, 0xc0}, // bitrate index 15
+		"truncated second": append(append([]byte{}, monoHeader...), bytes.Repeat([]byte{0xaa}, 100)...),
+	} {
+		in := append(append([]byte{}, one...), tail...)
+		if _, ok := padSilence(in, tailPad); ok {
+			t.Fatalf("%s: accepted", name)
+		}
+	}
+	two := clip(2)[16:]
+	if _, ok := padSilence(two, tailPad); !ok {
+		t.Fatal("two whole frames were rejected")
+	}
+}
+
 // Bytes that are not MP3 come back untouched and are reported as such; a
 // zero pad is a no-op that still counts as fine.
 func TestPadSilenceLeavesUnparseableAudioAlone(t *testing.T) {
