@@ -132,11 +132,19 @@ then detaches a job that splits the text into pieces at sentence ends (about
 220 characters each, and a single sentence up to 440 is kept whole rather
 than cut at a word), synthesizes them three at a time, and drops them in a
 queue under `~/.claude/tts-mode/queue`. Whoever holds the player lock plays
-tickets in the order they were requested, one piece at a time with a short
-pause between clips, waiting for a piece that is still being synthesized. The first piece plays while the rest
+tickets in the order they were requested, one piece at a time, waiting for a
+piece that is still being synthesized. The first piece plays while the rest
 are still in flight, and two sessions never talk over each other. A piece
 that never arrives is abandoned after 45 seconds so a crashed job cannot
 wedge the queue.
+
+Every clip ends with 350 ms of silence added by the player (mpv's `apad`
+filter; after ffplay, which cannot pad, the same wait). The API ends a clip
+within about 0.2 seconds of the last sound, so without the pad clips ran into
+each other and the last one stopped as if cut off. The pad is in the player
+rather than the text on purpose: Eleven v3 ignores SSML break tags, a
+trailing ellipsis added nothing, and `[pause]` added about three seconds in
+two runs out of five and nothing in the other three.
 
 ## When it goes quiet
 

@@ -31,7 +31,7 @@
     {
       "name": "tts-mode",
       "description": "Speak short summaries of Claude's work aloud, toggled per session",
-      "version": "20260903001",
+      "version": "20260903002",
       "source": "./tts-mode",
       "author": {
         "name": "Emmaly",
