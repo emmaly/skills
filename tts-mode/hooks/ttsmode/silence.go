@@ -58,9 +58,11 @@ func padSilence(audio []byte, d time.Duration) ([]byte, bool) {
 // frame's duration.
 //
 // A candidate counts only when the next frame starts where this one says it
-// ends, or this one runs to the end of the stream. Audio bytes can look like
-// a header, and accepting one of those would declare a format the stream
-// does not have.
+// ends, or this one ends exactly at the end of the stream. Audio bytes can
+// look like a header, and accepting one of those would declare a format the
+// stream does not have. A frame that claims to run past the end is such a
+// lookalike, not a truncated frame: the first frame of a real stream is
+// never the truncated one.
 func firstFrame(audio []byte) (header [4]byte, frameLen int, frameDur time.Duration, ok bool) {
 	i := 0
 	if len(audio) >= 10 && audio[0] == 'I' && audio[1] == 'D' && audio[2] == '3' {
@@ -77,7 +79,7 @@ func firstFrame(audio []byte) (header [4]byte, frameLen int, frameDur time.Durat
 			continue
 		}
 		next := i + frameLen + int(audio[i+2]>>1&1)
-		if next < len(audio) && !isSync(audio[next:]) {
+		if next != len(audio) && !(next < len(audio) && isSync(audio[next:])) {
 			continue
 		}
 		copy(header[:], audio[i:i+4])

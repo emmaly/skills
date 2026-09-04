@@ -114,6 +114,22 @@ func TestPadSilenceSkipsFalseSync(t *testing.T) {
 	}
 }
 
+// A lookalike header near the end of a non-MP3 stream, whose claimed frame
+// runs past the end, is not a frame. A lone real frame that ends exactly at
+// the end is.
+func TestPadSilenceRejectsLookalikeRunningPastTheEnd(t *testing.T) {
+	junk := bytes.Repeat([]byte{0x11}, 1800)
+	junk = append(junk, monoHeader...)
+	junk = append(junk, bytes.Repeat([]byte{0x22}, 196)...)
+	if _, ok := padSilence(junk, tailPad); ok {
+		t.Fatal("lookalike running past the end was accepted")
+	}
+	one := clip(1)[16:]
+	if _, ok := padSilence(one, tailPad); !ok {
+		t.Fatal("single complete frame was rejected")
+	}
+}
+
 // Bytes that are not MP3 come back untouched and are reported as such; a
 // zero pad is a no-op that still counts as fine.
 func TestPadSilenceLeavesUnparseableAudioAlone(t *testing.T) {
