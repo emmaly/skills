@@ -110,6 +110,7 @@ func writeAtomic(path string, data []byte) error {
 // a convenience, and no failure of it should fail the turn that asked for it.
 // Failures are logged and also recorded for the next say to report.
 func runSayQueued(text string, synth Synth, player Player, q Queue, logf func(string, ...any)) int {
+	synth = paddedSynth{synth, logf}
 	chunks := speakable(text, logf)
 	if len(chunks) == 0 {
 		logf("empty text, nothing to speak")
